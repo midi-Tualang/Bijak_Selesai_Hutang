@@ -71,7 +71,7 @@
     </div>
 
     <script>
-        // URL Web App Google Script anda
+        // SCRIPT_URL yang aktif
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVQVd52gEqiMPxDfiWz4LB63KESiasL_CDYfxBsE-_V8U9dwQ0_-HDBsLW5P-Bqks/exec";
 
         function bukaModal() { document.getElementById('modalBorang').style.display = 'flex'; }
@@ -101,28 +101,27 @@
                 return;
             }
 
-            // 1. Kitaran data untuk mengira Baki Hutang terkini (Hanya transaksi "Sah")
+            // 1. Kitaran data untuk mengira Baki Hutang terkini
             data.forEach(item => {
                 if (item.Status === 'Sah') {
                     if (item.Jenis === 'Abah tolong bayar hutang') {
-                        jumlahBaki += Number(item.Jumlah); // Hutang bertambah
+                        jumlahBaki += Number(item.Jumlah); 
                     } else if (item.Jenis === 'Hasif bayar semula hutang') {
-                        jumlahBaki -= Number(item.Jumlah); // Hutang berkurang
+                        jumlahBaki -= Number(item.Jumlah); 
                     }
                 }
             });
 
-            // 2. Kemas kini paparan jumlah baki di kad bahagian atas
+            // 2. Kemas kini paparan jumlah baki
             document.getElementById('bakiHutang').innerText = `RM ${jumlahBaki.toFixed(2)}`;
 
             // 3. Pusingkan senarai untuk papar yang terbaharu di atas
             data.reverse().forEach(item => {
                 const isMenunggu = item.Status === 'Menunggu';
                 const statusColor = isMenunggu ? 'text-orange-400 bg-orange-400/10' : 'text-emerald-400 bg-emerald-400/10';
-                
-                // Ikon berubah mengikut jenis transaksi (Abah atau Hasif)
                 const icon = item.Jenis.includes('Abah') ? 'fa-building-columns text-purple-400' : 'fa-hand-holding-dollar text-emerald-400';
 
+                // PERHATIAN: Di sini kita sudah menukar amaran alert() kepada fungsi sahkanTransaksi() yang sebenar
                 const cardHTML = `
                     <div class="glass-card rounded-xl p-4 flex items-center justify-between hover:bg-slate-800/50 transition">
                         <div class="flex items-center space-x-4">
@@ -138,7 +137,7 @@
                             <span class="text-xs px-2 py-1 rounded-md font-medium ${statusColor}">
                                 ${isMenunggu ? '<i class="fas fa-clock mr-1"></i> Menunggu' : '<i class="fas fa-check mr-1"></i> Sah'}
                             </span>
-                            ${isMenunggu ? `<button onclick="alert('Fungsi pengesahan bakal dibina')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto">Sahkan sekarang</button>` : ''}
+                            ${isMenunggu ? `<button onclick="sahkanTransaksi('${item.ID}')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto"><i class="fas fa-check-circle mr-1"></i> Sahkan sekarang</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -146,7 +145,30 @@
             });
         }
 
-        // Fungsi Menghantar Data
+        // Fungsi MENGESAHKAN Transaksi Sedia Ada (MENGHANTAR STATUS SAH KE GOOGLE)
+        async function sahkanTransaksi(id) {
+            if(!confirm("Sahkan transaksi ini? Baki hutang akan dikemas kini.")) return;
+
+            // Tukar paparan kepada proses pemuatan
+            document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengesahkan rekod...</p>';
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: "sahkan", id: id }),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                
+                // Muat turun semula data terbaharu (baki akan auto kemas kini)
+                muatData();
+                
+            } catch (error) {
+                alert('Gagal mengesahkan rekod. Cuba lagi.');
+                muatData();
+            }
+        }
+
+        // Fungsi Menghantar Data Baharu
         async function hantarData(event) {
             event.preventDefault();
             const btn = document.getElementById('butangHantar');
@@ -160,7 +182,7 @@
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify({ jumlah: jumlah, jenis: jenis }),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' } // 'text/plain' mengelakkan ralat CORS Google Script
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
                 });
                 
                 tutupModal();
