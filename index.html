@@ -22,15 +22,25 @@
                 <p class="text-slate-400 text-sm">Rekod & Pengesahan Transaksi</p>
             </div>
             <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <i class="fas fa-wallet text-white"></i>
+                <i class="fas fa-users text-white"></i>
             </div>
         </header>
 
         <div class="glass-card rounded-2xl p-6 shadow-xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl"><i class="fas fa-money-bill-wave"></i></div>
-            <p class="text-slate-400 text-sm mb-1">Baki Hutang Semasa</p>
-            <h2 id="bakiHutang" class="text-4xl font-bold text-amber-400 mb-4">RM 0.00</h2>
-            <button onclick="bukaModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition duration-300 shadow-lg shadow-blue-500/30">
+            <div class="absolute top-0 right-0 p-4 opacity-5 text-6xl"><i class="fas fa-money-check-alt"></i></div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6 relative z-10">
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
+                    <p class="text-slate-400 text-xs mb-1">Baki Hutang Abah</p>
+                    <h2 id="bakiHutangAbah" class="text-2xl font-bold text-amber-400">RM 0.00</h2>
+                </div>
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
+                    <p class="text-slate-400 text-xs mb-1">Baki Hutang Emak</p>
+                    <h2 id="bakiHutangEmak" class="text-2xl font-bold text-pink-400">RM 0.00</h2>
+                </div>
+            </div>
+
+            <button onclick="bukaModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition duration-300 shadow-lg shadow-blue-500/30 relative z-10">
                 <i class="fas fa-plus mr-2"></i> Rekod Transaksi Baharu
             </button>
         </div>
@@ -60,7 +70,9 @@
                     <label class="block text-sm text-slate-400 mb-1">Jenis Transaksi</label>
                     <select id="jenis" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500">
                         <option value="Abah tolong bayar hutang">Abah tolong bayar hutang</option>
-                        <option value="Hasif bayar semula hutang">Hasif bayar semula hutang</option>
+                        <option value="Hasif bayar semula hutang Abah">Hasif bayar semula hutang Abah</option>
+                        <option value="Emak tolong bayar hutang">Emak tolong bayar hutang</option>
+                        <option value="Hasif bayar semula hutang Emak">Hasif bayar semula hutang Emak</option>
                     </select>
                 </div>
                 <button type="submit" id="butangHantar" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl transition duration-300 mt-4 shadow-lg shadow-emerald-500/30">
@@ -71,7 +83,7 @@
     </div>
 
     <script>
-        // SCRIPT_URL yang aktif
+        // SCRIPT_URL yang aktif (tidak berubah)
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVQVd52gEqiMPxDfiWz4LB63KESiasL_CDYfxBsE-_V8U9dwQ0_-HDBsLW5P-Bqks/exec";
 
         function bukaModal() { document.getElementById('modalBorang').style.display = 'flex'; }
@@ -88,40 +100,59 @@
             }
         }
 
-        // Fungsi Memaparkan UI & Mengira Baki Automatik
+        // Fungsi Memaparkan UI & Mengira 2 Baki Automatik
         function paparData(data) {
             const container = document.getElementById('senaraiTransaksi');
-            container.innerHTML = ''; // Kosongkan loading text
+            container.innerHTML = ''; 
 
-            let jumlahBaki = 0; // Pembolehubah awal untuk pengiraan baki
+            let jumlahBakiAbah = 0;
+            let jumlahBakiEmak = 0;
 
             if(data.length === 0) {
                 container.innerHTML = '<p class="text-center text-slate-500 text-sm">Tiada transaksi direkodkan.</p>';
-                document.getElementById('bakiHutang').innerText = "RM 0.00";
+                document.getElementById('bakiHutangAbah').innerText = "RM 0.00";
+                document.getElementById('bakiHutangEmak').innerText = "RM 0.00";
                 return;
             }
 
-            // 1. Kitaran data untuk mengira Baki Hutang terkini
+            // 1. Kitaran data untuk mengira Baki Hutang Abah & Emak
             data.forEach(item => {
                 if (item.Status === 'Sah') {
+                    // Pengiraan untuk Abah
                     if (item.Jenis === 'Abah tolong bayar hutang') {
-                        jumlahBaki += Number(item.Jumlah); 
-                    } else if (item.Jenis === 'Hasif bayar semula hutang') {
-                        jumlahBaki -= Number(item.Jumlah); 
+                        jumlahBakiAbah += Number(item.Jumlah); 
+                    } 
+                    // Termasuk ayat lama ("Hasif bayar semula hutang") supaya baki sedia ada tak ralat
+                    else if (item.Jenis === 'Hasif bayar semula hutang' || item.Jenis === 'Hasif bayar semula hutang Abah') {
+                        jumlahBakiAbah -= Number(item.Jumlah); 
+                    } 
+                    // Pengiraan untuk Emak
+                    else if (item.Jenis === 'Emak tolong bayar hutang') {
+                        jumlahBakiEmak += Number(item.Jumlah);
+                    } 
+                    else if (item.Jenis === 'Hasif bayar semula hutang Emak') {
+                        jumlahBakiEmak -= Number(item.Jumlah);
                     }
                 }
             });
 
             // 2. Kemas kini paparan jumlah baki
-            document.getElementById('bakiHutang').innerText = `RM ${jumlahBaki.toFixed(2)}`;
+            document.getElementById('bakiHutangAbah').innerText = `RM ${jumlahBakiAbah.toFixed(2)}`;
+            document.getElementById('bakiHutangEmak').innerText = `RM ${jumlahBakiEmak.toFixed(2)}`;
 
-            // 3. Pusingkan senarai untuk papar yang terbaharu di atas
+            // 3. Paparan Senarai Transaksi
             data.reverse().forEach(item => {
                 const isMenunggu = item.Status === 'Menunggu';
                 const statusColor = isMenunggu ? 'text-orange-400 bg-orange-400/10' : 'text-emerald-400 bg-emerald-400/10';
-                const icon = item.Jenis.includes('Abah') ? 'fa-building-columns text-purple-400' : 'fa-hand-holding-dollar text-emerald-400';
+                
+                // Variasi Ikon & Warna berdasarkan individu
+                let icon = 'fa-hand-holding-dollar text-emerald-400'; // Default: Hasif bayar
+                if (item.Jenis.includes('Abah tolong')) {
+                    icon = 'fa-building-columns text-purple-400';
+                } else if (item.Jenis.includes('Emak tolong')) {
+                    icon = 'fa-wallet text-pink-400';
+                }
 
-                // PERHATIAN: Di sini kita sudah menukar amaran alert() kepada fungsi sahkanTransaksi() yang sebenar
                 const cardHTML = `
                     <div class="glass-card rounded-xl p-4 flex items-center justify-between hover:bg-slate-800/50 transition">
                         <div class="flex items-center space-x-4">
@@ -137,7 +168,7 @@
                             <span class="text-xs px-2 py-1 rounded-md font-medium ${statusColor}">
                                 ${isMenunggu ? '<i class="fas fa-clock mr-1"></i> Menunggu' : '<i class="fas fa-check mr-1"></i> Sah'}
                             </span>
-                            ${isMenunggu ? `<button onclick="sahkanTransaksi('${item.ID}')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto"><i class="fas fa-check-circle mr-1"></i> Sahkan sekarang</button>` : ''}
+                            ${isMenunggu ? `<button onclick="sahkanTransaksi('${item.ID}')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto"><i class="fas fa-check-circle mr-1"></i> Sahkan</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -145,11 +176,10 @@
             });
         }
 
-        // Fungsi MENGESAHKAN Transaksi Sedia Ada (MENGHANTAR STATUS SAH KE GOOGLE)
+        // Fungsi Sahkan Transaksi
         async function sahkanTransaksi(id) {
             if(!confirm("Sahkan transaksi ini? Baki hutang akan dikemas kini.")) return;
 
-            // Tukar paparan kepada proses pemuatan
             document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengesahkan rekod...</p>';
 
             try {
@@ -158,17 +188,14 @@
                     body: JSON.stringify({ action: "sahkan", id: id }),
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }
                 });
-                
-                // Muat turun semula data terbaharu (baki akan auto kemas kini)
                 muatData();
-                
             } catch (error) {
                 alert('Gagal mengesahkan rekod. Cuba lagi.');
                 muatData();
             }
         }
 
-        // Fungsi Menghantar Data Baharu
+        // Fungsi Hantar Data
         async function hantarData(event) {
             event.preventDefault();
             const btn = document.getElementById('butangHantar');
@@ -190,7 +217,6 @@
                 btn.innerHTML = 'Sahkan & Hantar';
                 btn.disabled = false;
                 
-                // Refresh data
                 document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengemaskini data...</p>';
                 muatData();
                 
@@ -201,7 +227,6 @@
             }
         }
 
-        // Jalankan muat data bila halaman dibuka
         window.onload = muatData;
     </script>
 </body>
