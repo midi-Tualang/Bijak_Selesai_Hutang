@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemantau Transaksi Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-md mx-auto space-y-6">
+        
+        <header class="flex justify-between items-center py-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Pemantau Akaun</h1>
+                <p class="text-slate-400 text-sm">Rekod & Pengesahan Transaksi</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <i class="fas fa-users text-white"></i>
+            </div>
+        </header>
+
+        <div class="glass-card rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-5 text-6xl"><i class="fas fa-money-check-alt"></i></div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6 relative z-10">
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
+                    <p class="text-slate-400 text-xs mb-1">Baki Hutang Abah</p>
+                    <h2 id="bakiHutangAbah" class="text-2xl font-bold text-amber-400">RM 0.00</h2>
+                </div>
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
+                    <p class="text-slate-400 text-xs mb-1">Baki Hutang Emak</p>
+                    <h2 id="bakiHutangEmak" class="text-2xl font-bold text-pink-400">RM 0.00</h2>
+                </div>
+            </div>
+
+            <button onclick="bukaModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition duration-300 shadow-lg shadow-blue-500/30 relative z-10">
+                <i class="fas fa-plus mr-2"></i> Rekod Transaksi Baharu
+            </button>
+        </div>
+
+        <div>
+            <h3 class="text-lg font-semibold text-slate-300 mb-4">Rekod Terkini</h3>
+            <div id="senaraiTransaksi" class="space-y-3">
+                <p class="text-center text-slate-500 text-sm py-4">Memuat turun data...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="modalBorang" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 rounded-2xl w-full max-w-sm p-6 border border-slate-700 shadow-2xl relative">
+            <button onclick="tutupModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h3 class="text-xl font-bold text-white mb-4">Transaksi Baharu</h3>
+            
+            <form id="borangTransaksi" onsubmit="hantarData(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Jumlah (RM)</label>
+                    <input type="number" step="0.01" id="jumlah" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Contoh: 150">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Jenis Transaksi</label>
+                    <select id="jenis" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500">
+                        <option value="Abah tolong bayar hutang">Abah tolong bayar hutang</option>
+                        <option value="Hasif bayar semula hutang Abah">Hasif bayar semula hutang Abah</option>
+                        <option value="Emak tolong bayar hutang">Emak tolong bayar hutang</option>
+                        <option value="Hasif bayar semula hutang Emak">Hasif bayar semula hutang Emak</option>
+                    </select>
+                </div>
+                <button type="submit" id="butangHantar" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl transition duration-300 mt-4 shadow-lg shadow-emerald-500/30">
+                    Sahkan & Hantar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // SCRIPT_URL yang aktif (tidak berubah)
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVQVd52gEqiMPxDfiWz4LB63KESiasL_CDYfxBsE-_V8U9dwQ0_-HDBsLW5P-Bqks/exec";
+
+        function bukaModal() { document.getElementById('modalBorang').style.display = 'flex'; }
+        function tutupModal() { document.getElementById('modalBorang').style.display = 'none'; }
+
+        // Fungsi Membaca Data
+        async function muatData() {
+            try {
+                const response = await fetch(SCRIPT_URL);
+                const result = await response.json();
+                paparData(result);
+            } catch (error) {
+                document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-red-400 text-sm">Gagal memuat turun rekod.</p>';
+            }
+        }
+
+        // Fungsi Memaparkan UI (baca struktur objek {data, totalAbah, totalEmak} dari doGet)
+        function paparData(response) {
+            const container = document.getElementById('senaraiTransaksi');
+            container.innerHTML = '';
+
+            const data = response.data || [];
+
+            // Gunakan terus jumlah baki yang telah dikira oleh backend (doGet)
+            const bakiAbah = Number(response.totalAbah) || 0;
+            const bakiEmak = Number(response.totalEmak) || 0;
+            document.getElementById('bakiHutangAbah').innerText = `RM ${bakiAbah.toFixed(2)}`;
+            document.getElementById('bakiHutangEmak').innerText = `RM ${bakiEmak.toFixed(2)}`;
+
+            if (data.length === 0) {
+                container.innerHTML = '<p class="text-center text-slate-500 text-sm">Tiada transaksi direkodkan.</p>';
+                return;
+            }
+
+            // Paparan Senarai Transaksi
+            data.reverse().forEach(item => {
+                const isMenunggu = item.Status === 'Menunggu';
+                const statusColor = isMenunggu ? 'text-orange-400 bg-orange-400/10' : 'text-emerald-400 bg-emerald-400/10';
+                
+                // Variasi Ikon & Warna berdasarkan individu
+                let icon = 'fa-hand-holding-dollar text-emerald-400'; // Default: Hasif bayar
+                if (item.Jenis.includes('Abah tolong')) {
+                    icon = 'fa-building-columns text-purple-400';
+                } else if (item.Jenis.includes('Emak tolong')) {
+                    icon = 'fa-wallet text-pink-400';
+                }
+
+                const cardHTML = `
+                    <div class="glass-card rounded-xl p-4 flex items-center justify-between hover:bg-slate-800/50 transition">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
+                                <i class="fas ${icon}"></i>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-white">RM ${item.Jumlah}</p>
+                                <p class="text-xs text-slate-400">${item.Tarikh.substring(0, 10)} • ${item.Jenis}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs px-2 py-1 rounded-md font-medium ${statusColor}">
+                                ${isMenunggu ? '<i class="fas fa-clock mr-1"></i> Menunggu' : '<i class="fas fa-check mr-1"></i> Sah'}
+                            </span>
+                            ${isMenunggu ? `<button onclick="sahkanTransaksi('${item.ID}')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto"><i class="fas fa-check-circle mr-1"></i> Sahkan</button>` : ''}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHTML;
+            });
+        }
+
+        // Fungsi Sahkan Transaksi
+        async function sahkanTransaksi(id) {
+            if(!confirm("Sahkan transaksi ini? Baki hutang akan dikemas kini.")) return;
+
+            document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengesahkan rekod...</p>';
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: "sahkan", id: id }),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                muatData();
+            } catch (error) {
+                alert('Gagal mengesahkan rekod. Cuba lagi.');
+                muatData();
+            }
+        }
+
+        // Fungsi Hantar Data
+        async function hantarData(event) {
+            event.preventDefault();
+            const btn = document.getElementById('butangHantar');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Memproses...';
+            btn.disabled = true;
+
+            const jumlah = document.getElementById('jumlah').value;
+            const jenis = document.getElementById('jenis').value;
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ jumlah: jumlah, jenis: jenis }),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                });
+                
+                tutupModal();
+                document.getElementById('borangTransaksi').reset();
+                btn.innerHTML = 'Sahkan & Hantar';
+                btn.disabled = false;
+                
+                document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengemaskini data...</p>';
+                muatData();
+                
+            } catch (error) {
+                alert('Gagal merekod. Sila cuba lagi.');
+                btn.innerHTML = 'Sahkan & Hantar';
+                btn.disabled = false;
+            }
+        }
+
+        window.onload = muatData;
+    </script>
+</body>
+</html>
