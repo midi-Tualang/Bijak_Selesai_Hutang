@@ -29,7 +29,7 @@
         <div class="glass-card rounded-2xl p-6 shadow-xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-6xl"><i class="fas fa-money-check-alt"></i></div>
             
-            <div class="grid grid-cols-2 gap-4 mb-6 relative z-10">
+            <div class="grid grid-cols-2 gap-4 mb-4 relative z-10">
                 <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
                     <p class="text-slate-400 text-xs mb-1">Baki Hutang Abah</p>
                     <h2 id="bakiHutangAbah" class="text-2xl font-bold text-amber-400">RM 0.00</h2>
@@ -38,6 +38,11 @@
                     <p class="text-slate-400 text-xs mb-1">Baki Hutang Emak</p>
                     <h2 id="bakiHutangEmak" class="text-2xl font-bold text-pink-400">RM 0.00</h2>
                 </div>
+            </div>
+
+            <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 mb-6 relative z-10">
+                <p class="text-slate-400 text-xs mb-1">Jumlah Hutang Keseluruhan</p>
+                <h2 id="bakiHutangKeseluruhan" class="text-2xl font-bold text-sky-400">RM 0.00</h2>
             </div>
 
             <button onclick="bukaModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition duration-300 shadow-lg shadow-blue-500/30 relative z-10">
@@ -110,8 +115,10 @@
             // Gunakan terus jumlah baki yang telah dikira oleh backend (doGet)
             const bakiAbah = Number(response.totalAbah) || 0;
             const bakiEmak = Number(response.totalEmak) || 0;
+            const bakiKeseluruhan = Number(response.totalKeseluruhan) || (bakiAbah + bakiEmak);
             document.getElementById('bakiHutangAbah').innerText = `RM ${bakiAbah.toFixed(2)}`;
             document.getElementById('bakiHutangEmak').innerText = `RM ${bakiEmak.toFixed(2)}`;
+            document.getElementById('bakiHutangKeseluruhan').innerText = `RM ${bakiKeseluruhan.toFixed(2)}`;
 
             if (data.length === 0) {
                 container.innerHTML = '<p class="text-center text-slate-500 text-sm">Tiada transaksi direkodkan.</p>';
