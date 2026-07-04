@@ -3,231 +3,418 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pemantau Transaksi Premium</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Rekod Dana & Hutang Keluarga</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
-        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        :root {
+            --bg-color: #eef2f5;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --primary: #34495e;
+            --accent: #27ae60;
+            --danger: #e74c3c;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 480px;
+            padding: 15px;
+            animation: fadeIn 0.6s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        h2, h3 { margin-top: 0; color: #1a252f; }
+        input, button, select {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border-radius: 10px;
+            border: 1px solid #dcdde1;
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 5px rgba(52, 73, 94, 0.3);
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button.btn-accent { background-color: var(--accent); }
+        button.btn-danger { background-color: var(--danger); }
+        .hidden { display: none !important; }
+        
+        #login-section { text-align: center; margin-top: 40px; }
+        #pin-input { text-align: center; font-size: 28px; letter-spacing: 8px; font-weight: bold; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f2f6; padding-bottom: 15px; margin-bottom: 25px;}
+        .balance-box { text-align: center; background: linear-gradient(135deg, #2c3e50, #34495e); color: white; border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(44, 62, 80, 0.2); }
+        .balance-box h1 { margin: 10px 0 0 0; font-size: 36px; color: #2ecc71; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: var(--card-bg);
+            padding: 25px; border-radius: 16px;
+            width: 90%; max-width: 400px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+            animation: fadeIn 0.3s ease-in-out;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .close-btn {
+            background-color: transparent; color: var(--danger);
+            border: none; text-align: right; padding: 0;
+            font-size: 16px; margin-bottom: 15px; font-weight: bold;
+        }
+
+        .transaksi-item { border-bottom: 1px solid #f1f2f6; padding: 15px 0; display: flex; justify-content: space-between; align-items: center;}
+        .transaksi-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .text-accent { color: var(--accent); font-weight: bold; font-size: 16px; }
+        .transaksi-detail { font-size: 13px; color: #7f8c8d; margin-top: 4px; }
+        .senarai-dana-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; }
+        .senarai-dana-item:last-child { border-bottom: none; }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-8">
+<body>
 
-    <div class="max-w-md mx-auto space-y-6">
+<div class="container">
+    
+    <div id="login-section" class="card">
+        <h2 style="margin-bottom: 5px;">Rekod Dana & Hutang</h2>
+        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 20px;">Sila masukkan PIN untuk akses</p>
+        <input type="password" id="pin-input" placeholder="••••" maxlength="4" pattern="[0-9]*" inputmode="numeric">
+        <button onclick="logMasuk()" style="margin-top: 15px;">Log Masuk</button>
+        <p id="login-status" style="color: var(--danger); font-size: 14px; margin-top: 15px;"></p>
+    </div>
+
+    <div id="dashboard-section" class="hidden">
+        <div class="header">
+            <h3 id="user-role" style="margin:0; font-size: 16px;">Profil: Pengguna</h3>
+            <button onclick="logKeluar()" style="width: auto; padding: 8px 16px; background: #95a5a6; border-radius: 20px; font-size: 13px;">Log Keluar</button>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <div style="flex: 1; text-align: center; background: linear-gradient(135deg, #e67e22, #d35400); color: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                <p style="margin:0; font-size: 12px; opacity: 0.9;">Hutang Abah</p>
+                <h2 id="baki-abah" style="margin: 5px 0 0 0; font-size: 22px;">RM 0.00</h2>
+            </div>
+            <div style="flex: 1; text-align: center; background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                <p style="margin:0; font-size: 12px; opacity: 0.9;">Hutang Emak</p>
+                <h2 id="baki-emak" style="margin: 5px 0 0 0; font-size: 22px;">RM 0.00</h2>
+            </div>
+        </div>
+
+        <div class="balance-box">
+            <p style="margin:0; opacity: 0.8; font-size: 14px; letter-spacing: 0.5px;">JUMLAH KESELURUHAN DANA</p>
+            <h1 id="total-dana">RM 0.00</h1>
+        </div>
+
+        <div id="tindakan-user" class="card hidden">
+            <button class="btn-accent" onclick="bukaModalBayar()" style="padding: 16px; font-size: 16px; box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3);">+ Rekod Transaksi Baharu</button>
+        </div>
+
+        <div id="tindakan-admin" class="card hidden">
+            <h3 style="margin-bottom: 15px; font-size: 16px;">Panel Kawalan Abah</h3>
+            <button class="btn-danger" onclick="bukaModalKeluar()" style="margin-bottom: 10px;">- Pengeluaran Dana</button>
+            <button class="btn-accent" onclick="bukaModalBayar()" style="margin-bottom: 10px;">+ Rekod Transaksi Baharu</button>
+            <button onclick="alert('Fungsi cetak PDF akan datang')">Cetak Laporan PDF</button>
+        </div>
+
+        <div class="card">
+            <h3 style="font-size: 16px; margin-bottom: 15px;">Pecahan Dana Terkumpul</h3>
+            <div id="senarai-dana">
+                </div>
+        </div>
+
+        <div class="card">
+            <h3 style="font-size: 16px; margin-bottom: 15px;">Sejarah Transaksi Terkini</h3>
+            <div id="senarai-transaksi">
+                </div>
+        </div>
         
-        <header class="flex justify-between items-center py-4">
-            <div>
-                <h1 class="text-2xl font-bold text-white">Pemantau Akaun</h1>
-                <p class="text-slate-400 text-sm">Rekod & Pengesahan Transaksi</p>
-            </div>
-            <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <i class="fas fa-users text-white"></i>
-            </div>
-        </header>
-
-        <div class="glass-card rounded-2xl p-6 shadow-xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-5 text-6xl"><i class="fas fa-money-check-alt"></i></div>
-            
-            <div class="grid grid-cols-2 gap-4 mb-6 relative z-10">
-                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
-                    <p class="text-slate-400 text-xs mb-1">Baki Hutang Abah</p>
-                    <h2 id="bakiHutangAbah" class="text-2xl font-bold text-amber-400">RM 0.00</h2>
-                </div>
-                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
-                    <p class="text-slate-400 text-xs mb-1">Baki Hutang Emak</p>
-                    <h2 id="bakiHutangEmak" class="text-2xl font-bold text-pink-400">RM 0.00</h2>
-                </div>
-            </div>
-
-            <button onclick="bukaModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition duration-300 shadow-lg shadow-blue-500/30 relative z-10">
-                <i class="fas fa-plus mr-2"></i> Rekod Transaksi Baharu
-            </button>
-        </div>
-
-        <div>
-            <h3 class="text-lg font-semibold text-slate-300 mb-4">Rekod Terkini</h3>
-            <div id="senaraiTransaksi" class="space-y-3">
-                <p class="text-center text-slate-500 text-sm py-4">Memuat turun data...</p>
-            </div>
-        </div>
-
     </div>
+</div>
 
-    <div id="modalBorang" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-slate-800 rounded-2xl w-full max-w-sm p-6 border border-slate-700 shadow-2xl relative">
-            <button onclick="tutupModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
-                <i class="fas fa-times text-xl"></i>
-            </button>
-            <h3 class="text-xl font-bold text-white mb-4">Transaksi Baharu</h3>
-            
-            <form id="borangTransaksi" onsubmit="hantarData(event)" class="space-y-4">
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Jumlah (RM)</label>
-                    <input type="number" step="0.01" id="jumlah" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Contoh: 150">
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Jenis Transaksi</label>
-                    <select id="jenis" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500">
-                        <option value="Abah tolong bayar hutang">Abah tolong bayar hutang</option>
-                        <option value="Hasif bayar semula hutang Abah">Hasif bayar semula hutang Abah</option>
-                        <option value="Emak tolong bayar hutang">Emak tolong bayar hutang</option>
-                        <option value="Hasif bayar semula hutang Emak">Hasif bayar semula hutang Emak</option>
-                    </select>
-                </div>
-                <button type="submit" id="butangHantar" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl transition duration-300 mt-4 shadow-lg shadow-emerald-500/30">
-                    Sahkan & Hantar
-                </button>
-            </form>
-        </div>
+<div id="modal-bayar" class="modal hidden">
+    <div class="modal-content">
+        <button class="close-btn" onclick="tutupModalBayar()">✖ Batal</button>
+        <h3 style="color: var(--primary); margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">Transaksi Baharu</h3>
+        
+        <label style="font-size: 14px; font-weight: 600; color: #34495e;">Jenis Transaksi:</label>
+        <select id="input-jenis">
+            <option value="Bayar Hutang">Masukkan Dana Biasa (RM 500)</option>
+            <option value="Abah tolong bayar hutang">Abah tolong bayar hutang</option>
+            <option value="Hasif bayar semula hutang Abah">Hasif bayar semula hutang Abah</option>
+            <option value="Emak tolong bayar hutang">Emak tolong bayar hutang</option>
+            <option value="Hasif bayar semula hutang Emak">Hasif bayar semula hutang Emak</option>
+        </select>
+
+        <label style="font-size: 14px; font-weight: 600; color: #34495e; display:block; margin-top:10px;">Jumlah Bayaran (RM):</label>
+        <input type="number" id="input-jumlah" placeholder="Contoh: 500.00" step="0.01">
+
+        <label style="font-size: 14px; font-weight: 600; color: #34495e; display:block; margin-top:10px;">Catatan / Nota Bulan:</label>
+        <input type="text" id="input-nota" placeholder="Contoh: Bayaran bulanan">
+
+        <button class="btn-accent" onclick="hantarBayaran()" id="btn-hantar" style="margin-top: 20px; padding: 15px;">Sahkan Bayaran</button>
+        <p id="status-hantar" style="text-align:center; font-size:14px; margin-top:10px; font-weight: 600;"></p>
     </div>
+</div>
 
-    <script>
-        // SCRIPT_URL yang aktif (tidak berubah)
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVQVd52gEqiMPxDfiWz4LB63KESiasL_CDYfxBsE-_V8U9dwQ0_-HDBsLW5P-Bqks/exec";
+<div id="modal-keluar" class="modal hidden">
+    <div class="modal-content">
+        <button class="close-btn" onclick="tutupModalKeluar()">✖ Batal</button>
+        <h3 style="color: var(--danger); margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">- Pengeluaran Dana</h3>
+        
+        <label style="font-size: 14px; font-weight: 600; color: #34495e;">Pilih Dana:</label>
+        <select id="input-keluar-jenis">
+            <option value="Dana Servis Veloz">Servis Veloz</option>
+            <option value="Dana Servis Persona">Servis Persona</option>
+            <option value="Dana Roadtax Veloz">Roadtax Veloz</option>
+            <option value="Dana Roadtax Persona">Roadtax Persona</option>
+            <option value="Tabungan Masa Depan">Tabungan Masa Depan</option>
+        </select>
 
-        function bukaModal() { document.getElementById('modalBorang').style.display = 'flex'; }
-        function tutupModal() { document.getElementById('modalBorang').style.display = 'none'; }
+        <label style="font-size: 14px; font-weight: 600; color: #34495e; display:block; margin-top:10px;">Jumlah Keluarkan (RM):</label>
+        <input type="number" id="input-keluar-jumlah" placeholder="Contoh: 150.00" step="0.01">
 
-        // Fungsi Membaca Data
-        async function muatData() {
-            try {
-                const response = await fetch(SCRIPT_URL);
-                const data = await response.json();
-                paparData(data);
-            } catch (error) {
-                document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-red-400 text-sm">Gagal memuat turun rekod.</p>';
-            }
+        <label style="font-size: 14px; font-weight: 600; color: #34495e; display:block; margin-top:10px;">Tujuan Pengeluaran:</label>
+        <input type="text" id="input-keluar-tujuan" placeholder="Contoh: Beli tayar baru">
+
+        <button class="btn-danger" onclick="hantarPengeluaran()" id="btn-keluar" style="margin-top: 20px; padding: 15px;">Sahkan Pengeluaran</button>
+        <p id="status-keluar" style="text-align:center; font-size:14px; margin-top:10px; font-weight: 600;"></p>
+    </div>
+</div>
+
+<script>
+    // URL Back-end yang telah digunakan sebelum ini dengan sistem log masuk (PIN)
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbybsw0VFwZhmtzDF9sYae9KYkdUROpgV5JyKMWnJLjXhFiW4myZ_l1Q8UadnXcBvnw/exec"; 
+    let pinSemasa = "";
+
+    function logMasuk() {
+        const pin = document.getElementById('pin-input').value;
+        const statusText = document.getElementById('login-status');
+        
+        if(pin.length < 4) {
+            statusText.innerText = "Sila masukkan 4 digit PIN.";
+            return;
+        }
+        statusText.style.color = "var(--primary)";
+        statusText.innerText = "Memeriksa akses pangkalan data...";
+        
+        fetch(`${GAS_URL}?pin=${pin}&action=getData`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === "SUCCESS") {
+                    pinSemasa = pin;
+                    paparDashboard(data);
+                } else {
+                    statusText.style.color = "var(--danger)";
+                    statusText.innerText = "PIN Salah. Sila cuba lagi.";
+                }
+            })
+            .catch(error => {
+                statusText.style.color = "var(--danger)";
+                statusText.innerText = "Ralat sambungan internet.";
+            });
+    }
+
+    function paparDashboard(data) {
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('dashboard-section').classList.remove('hidden');
+        
+        const peranan = data.peranan;
+        document.getElementById('user-role').innerHTML = peranan === "ADMIN" ? "👑 <b>Panel Abah</b>" : "👤 <b>Hasif & Fatini</b>";
+        
+        // Memuatkan Baki Hutang (gabungan baru)
+        const dHutangAbah = parseFloat(data.ringkasan["Hutang Abah"] || 0);
+        const dHutangEmak = parseFloat(data.ringkasan["Hutang Emak"] || 0);
+        document.getElementById('baki-abah').innerText = "RM " + dHutangAbah.toFixed(2);
+        document.getElementById('baki-emak').innerText = "RM " + dHutangEmak.toFixed(2);
+
+        // Memuatkan Dana Semasa
+        const dVelozS = parseFloat(data.ringkasan["Dana Servis Veloz"] || 0);
+        const dPersonaS = parseFloat(data.ringkasan["Dana Servis Persona"] || 0);
+        const dVelozR = parseFloat(data.ringkasan["Dana Roadtax Veloz"] || 0);
+        const dPersonaR = parseFloat(data.ringkasan["Dana Roadtax Persona"] || 0);
+        const dTabungan = parseFloat(data.ringkasan["Tabungan Masa Depan"] || 0);
+
+        const totalDana = dVelozS + dPersonaS + dVelozR + dPersonaR + dTabungan;
+        document.getElementById('total-dana').innerText = "RM " + totalDana.toFixed(2);
+
+        const kunci = peranan === 'USER' ? '<span style="font-size:12px;">🔒</span>' : '';
+        document.getElementById('senarai-dana').innerHTML = `
+            <div class="senarai-dana-item"><span>🚗 Servis Veloz</span> <b>RM ${dVelozS.toFixed(2)} ${kunci}</b></div>
+            <div class="senarai-dana-item"><span>🚗 Servis Persona</span> <b>RM ${dPersonaS.toFixed(2)} ${kunci}</b></div>
+            <div class="senarai-dana-item"><span>📄 Roadtax Veloz</span> <b>RM ${dVelozR.toFixed(2)} ${kunci}</b></div>
+            <div class="senarai-dana-item"><span>📄 Roadtax Persona</span> <b>RM ${dPersonaR.toFixed(2)} ${kunci}</b></div>
+            <div class="senarai-dana-item" style="margin-top: 15px; border-top: 2px solid #f1f2f6; padding-top: 15px;">
+                <span style="color: var(--accent); font-weight: bold; font-size:16px;">💰 Tabungan Masa Depan</span> 
+                <b style="color: var(--accent); font-size:16px;">RM ${dTabungan.toFixed(2)} ${kunci}</b>
+            </div>
+        `;
+
+        if(peranan === "ADMIN") {
+            document.getElementById('tindakan-admin').classList.remove('hidden');
+            document.getElementById('tindakan-user').classList.add('hidden');
+        } else {
+            document.getElementById('tindakan-user').classList.remove('hidden');
+            document.getElementById('tindakan-admin').classList.add('hidden');
         }
 
-        // Fungsi Memaparkan UI & Mengira 2 Baki Automatik
-        function paparData(data) {
-            const container = document.getElementById('senaraiTransaksi');
-            container.innerHTML = ''; 
+        const sejarahTransaksi = data.transaksi || [];
+        let htmlTransaksi = "";
+        let adaRekod = false;
 
-            let jumlahBakiAbah = 0;
-            let jumlahBakiEmak = 0;
+        sejarahTransaksi.forEach(t => {
+            if (t.jenis !== "Perbelanjaan" && t.jenis !== "Pendapatan") { // Abaikan rekod lama jika ada
+                adaRekod = true;
+                let isKeluaran = t.jenis === "Pengeluaran Dana"; // Untuk membezakan warna
+                let warna = isKeluaran ? "var(--danger)" : "var(--accent)";
+                let simbol = isKeluaran ? "-" : "+";
 
-            if(data.length === 0) {
-                container.innerHTML = '<p class="text-center text-slate-500 text-sm">Tiada transaksi direkodkan.</p>';
-                document.getElementById('bakiHutangAbah').innerText = "RM 0.00";
-                document.getElementById('bakiHutangEmak').innerText = "RM 0.00";
-                return;
-            }
-
-            // 1. Kitaran data untuk mengira Baki Hutang Abah & Emak
-            data.forEach(item => {
-                if (item.Status === 'Sah') {
-                    // Pengiraan untuk Abah
-                    if (item.Jenis === 'Abah tolong bayar hutang') {
-                        jumlahBakiAbah += Number(item.Jumlah); 
-                    } 
-                    // Termasuk ayat lama ("Hasif bayar semula hutang") supaya baki sedia ada tak ralat
-                    else if (item.Jenis === 'Hasif bayar semula hutang' || item.Jenis === 'Hasif bayar semula hutang Abah') {
-                        jumlahBakiAbah -= Number(item.Jumlah); 
-                    } 
-                    // Pengiraan untuk Emak
-                    else if (item.Jenis === 'Emak tolong bayar hutang') {
-                        jumlahBakiEmak += Number(item.Jumlah);
-                    } 
-                    else if (item.Jenis === 'Hasif bayar semula hutang Emak') {
-                        jumlahBakiEmak -= Number(item.Jumlah);
-                    }
-                }
-            });
-
-            // 2. Kemas kini paparan jumlah baki
-            document.getElementById('bakiHutangAbah').innerText = `RM ${jumlahBakiAbah.toFixed(2)}`;
-            document.getElementById('bakiHutangEmak').innerText = `RM ${jumlahBakiEmak.toFixed(2)}`;
-
-            // 3. Paparan Senarai Transaksi
-            data.reverse().forEach(item => {
-                const isMenunggu = item.Status === 'Menunggu';
-                const statusColor = isMenunggu ? 'text-orange-400 bg-orange-400/10' : 'text-emerald-400 bg-emerald-400/10';
-                
-                // Variasi Ikon & Warna berdasarkan individu
-                let icon = 'fa-hand-holding-dollar text-emerald-400'; // Default: Hasif bayar
-                if (item.Jenis.includes('Abah tolong')) {
-                    icon = 'fa-building-columns text-purple-400';
-                } else if (item.Jenis.includes('Emak tolong')) {
-                    icon = 'fa-wallet text-pink-400';
-                }
-
-                const cardHTML = `
-                    <div class="glass-card rounded-xl p-4 flex items-center justify-between hover:bg-slate-800/50 transition">
-                        <div class="flex items-center space-x-4">
-                            <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
-                                <i class="fas ${icon}"></i>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-white">RM ${item.Jumlah}</p>
-                                <p class="text-xs text-slate-400">${item.Tarikh.substring(0, 10)} • ${item.Jenis}</p>
-                            </div>
+                htmlTransaksi += `
+                    <div class="transaksi-item">
+                        <div>
+                            <div style="font-weight:bold; font-size: 14px; color:#2c3e50;">${t.jenis}</div>
+                            <div class="transaksi-detail">${t.tarikh} • ${t.nota || t.kategori || ''}</div>
                         </div>
-                        <div class="text-right">
-                            <span class="text-xs px-2 py-1 rounded-md font-medium ${statusColor}">
-                                ${isMenunggu ? '<i class="fas fa-clock mr-1"></i> Menunggu' : '<i class="fas fa-check mr-1"></i> Sah'}
-                            </span>
-                            ${isMenunggu ? `<button onclick="sahkanTransaksi('${item.ID}')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto"><i class="fas fa-check-circle mr-1"></i> Sahkan</button>` : ''}
-                        </div>
+                        <div style="color: ${warna}; font-weight: bold; font-size: 16px;">${simbol} RM ${parseFloat(t.jumlah).toFixed(2)}</div>
                     </div>
                 `;
-                container.innerHTML += cardHTML;
-            });
-        }
-
-        // Fungsi Sahkan Transaksi
-        async function sahkanTransaksi(id) {
-            if(!confirm("Sahkan transaksi ini? Baki hutang akan dikemas kini.")) return;
-
-            document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengesahkan rekod...</p>';
-
-            try {
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: "sahkan", id: id }),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                });
-                muatData();
-            } catch (error) {
-                alert('Gagal mengesahkan rekod. Cuba lagi.');
-                muatData();
             }
+        });
+
+        if (!adaRekod) {
+            htmlTransaksi = "<p style='text-align:center; color:#95a5a6; font-size:14px; margin-top:20px;'>Belum ada rekod kewangan.</p>";
         }
+        document.getElementById('senarai-transaksi').innerHTML = htmlTransaksi;
+    }
 
-        // Fungsi Hantar Data
-        async function hantarData(event) {
-            event.preventDefault();
-            const btn = document.getElementById('butangHantar');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Memproses...';
-            btn.disabled = true;
+    function logKeluar() {
+        pinSemasa = "";
+        document.getElementById('pin-input').value = "";
+        document.getElementById('login-status').innerText = "";
+        document.getElementById('dashboard-section').classList.add('hidden');
+        document.getElementById('login-section').classList.remove('hidden');
+    }
 
-            const jumlah = document.getElementById('jumlah').value;
-            const jenis = document.getElementById('jenis').value;
+    // --- PENGURUSAN BAYARAN MASUK ---
+    function bukaModalBayar() {
+        document.getElementById('modal-bayar').classList.remove('hidden');
+        document.getElementById('status-hantar').innerText = "";
+        document.getElementById('input-jumlah').value = "500.00";
+        document.getElementById('input-nota').value = "";
+    }
+    function tutupModalBayar() {
+        document.getElementById('modal-bayar').classList.add('hidden');
+    }
+    function hantarBayaran() {
+        const jenis = document.getElementById('input-jenis').value;
+        const jumlah = parseFloat(document.getElementById('input-jumlah').value);
+        const nota = document.getElementById('input-nota').value;
+        const statusText = document.getElementById('status-hantar');
 
-            try {
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ jumlah: jumlah, jenis: jenis }),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
-                });
-                
-                tutupModal();
-                document.getElementById('borangTransaksi').reset();
-                btn.innerHTML = 'Sahkan & Hantar';
-                btn.disabled = false;
-                
-                document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengemaskini data...</p>';
-                muatData();
-                
-            } catch (error) {
-                alert('Gagal merekod. Sila cuba lagi.');
-                btn.innerHTML = 'Sahkan & Hantar';
-                btn.disabled = false;
+        if (!jumlah || jumlah <= 0) {
+            statusText.innerText = "Sila pastikan jumlah sah!";
+            statusText.style.color = "var(--danger)";
+            return;
+        }
+        statusText.innerText = "Sedang merekod transaksi...";
+        statusText.style.color = "var(--primary)";
+        document.getElementById('btn-hantar').disabled = true;
+
+        fetch(GAS_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "tambahTransaksi", pin: pinSemasa, jenis: jenis, kategori: "Rakaman Kewangan", jumlah: jumlah, nota: nota }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        }).then(res => res.json()).then(data => {
+            if(data.status === "SUCCESS") {
+                statusText.innerText = "✓ Berjaya direkodkan!";
+                statusText.style.color = "var(--accent)";
+                setTimeout(() => { tutupModalBayar(); document.getElementById('btn-hantar').disabled = false; logMasuk(); }, 1500);
+            } else {
+                statusText.innerText = "Ralat: " + data.message;
+                statusText.style.color = "var(--danger)";
+                document.getElementById('btn-hantar').disabled = false;
             }
+        });
+    }
+
+    // --- PENGURUSAN PENGELUARAN DANA (ADMIN) ---
+    function bukaModalKeluar() {
+        document.getElementById('modal-keluar').classList.remove('hidden');
+        document.getElementById('status-keluar').innerText = "";
+        document.getElementById('input-keluar-jumlah').value = "";
+        document.getElementById('input-keluar-tujuan').value = "";
+    }
+    function tutupModalKeluar() {
+        document.getElementById('modal-keluar').classList.add('hidden');
+    }
+    function hantarPengeluaran() {
+        const jenisTabung = document.getElementById('input-keluar-jenis').value;
+        const jumlah = parseFloat(document.getElementById('input-keluar-jumlah').value);
+        const tujuan = document.getElementById('input-keluar-tujuan').value;
+        const statusText = document.getElementById('status-keluar');
+
+        if (!jumlah || jumlah <= 0 || !tujuan) {
+            statusText.innerText = "Sila lengkapkan jumlah dan tujuan!";
+            statusText.style.color = "var(--danger)";
+            return;
         }
 
-        window.onload = muatData;
-    </script>
+        statusText.innerText = "Memproses pengeluaran...";
+        statusText.style.color = "var(--primary)";
+        document.getElementById('btn-keluar').disabled = true;
+
+        fetch(GAS_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "pengeluaranAdmin", pin: pinSemasa, jenisTabung: jenisTabung, jumlah: jumlah, tujuan: tujuan }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        }).then(res => res.json()).then(data => {
+            if(data.status === "SUCCESS") {
+                statusText.innerText = "✓ Pengeluaran berjaya!";
+                statusText.style.color = "var(--accent)";
+                setTimeout(() => { tutupModalKeluar(); document.getElementById('btn-keluar').disabled = false; logMasuk(); }, 1500);
+            } else {
+                statusText.innerText = "Ralat: " + data.message;
+                statusText.style.color = "var(--danger)";
+                document.getElementById('btn-keluar').disabled = false;
+            }
+        });
+    }
+</script>
+
 </body>
 </html>
