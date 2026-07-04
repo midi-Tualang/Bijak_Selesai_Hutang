@@ -71,8 +71,17 @@
         button.btn-danger { background-color: var(--danger); }
         .hidden { display: none !important; }
         
-        #login-section { text-align: center; margin-top: 40px; }
-        #pin-input { text-align: center; font-size: 28px; letter-spacing: 8px; font-weight: bold; }
+        #loading-section { text-align: center; margin-top: 40px; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f2f6; padding-bottom: 15px; margin-bottom: 25px;}
         .balance-box { text-align: center; background: linear-gradient(135deg, #2c3e50, #34495e); color: white; border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(44, 62, 80, 0.2); }
@@ -111,18 +120,15 @@
 
 <div class="container">
     
-    <div id="login-section" class="card">
-        <h2 style="margin-bottom: 5px;">Rekod Dana & Hutang</h2>
-        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 20px;">Sila masukkan PIN untuk akses</p>
-        <input type="password" id="pin-input" placeholder="••••" maxlength="4" pattern="[0-9]*" inputmode="numeric">
-        <button onclick="logMasuk()" style="margin-top: 15px;">Log Masuk</button>
-        <p id="login-status" style="color: var(--danger); font-size: 14px; margin-top: 15px;"></p>
+    <div id="loading-section" class="card">
+        <div class="loader"></div>
+        <h3 id="loading-text" style="color: var(--primary);">Menyegerak data...</h3>
     </div>
 
     <div id="dashboard-section" class="hidden">
         <div class="header">
             <h3 id="user-role" style="margin:0; font-size: 16px;">Profil: Pengguna</h3>
-            <button onclick="logKeluar()" style="width: auto; padding: 8px 16px; background: #95a5a6; border-radius: 20px; font-size: 13px;">Log Keluar</button>
+            <button onclick="logKeluar()" id="btn-keluar" class="hidden" style="width: auto; padding: 8px 16px; background: #95a5a6; border-radius: 20px; font-size: 13px;">Keluar Admin</button>
         </div>
 
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
@@ -154,14 +160,12 @@
 
         <div class="card">
             <h3 style="font-size: 16px; margin-bottom: 15px;">Pecahan Dana Terkumpul</h3>
-            <div id="senarai-dana">
-                </div>
+            <div id="senarai-dana"></div>
         </div>
 
         <div class="card">
             <h3 style="font-size: 16px; margin-bottom: 15px;">Sejarah Transaksi Terkini</h3>
-            <div id="senarai-transaksi">
-                </div>
+            <div id="senarai-transaksi"></div>
         </div>
         
     </div>
@@ -218,52 +222,64 @@
 </div>
 
 <script>
-    // URL Back-end yang telah digunakan sebelum ini dengan sistem log masuk (PIN)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbybsw0VFwZhmtzDF9sYae9KYkdUROpgV5JyKMWnJLjXhFiW4myZ_l1Q8UadnXcBvnw/exec"; 
     let pinSemasa = "";
 
-    function logMasuk() {
-        const pin = document.getElementById('pin-input').value;
-        const statusText = document.getElementById('login-status');
-        
-        if(pin.length < 4) {
-            statusText.innerText = "Sila masukkan 4 digit PIN.";
-            return;
+    // Dijalankan secara automatik apabila laman web dibuka
+    window.onload = function() {
+        // Semak URL Parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const adminPswd = urlParams.get('admin');
+
+        // --- TETAPAN KATA LALUAN ---
+        // Jika pautan ialah domain.com/?admin=rahsia123, ia akan jadi ADMIN.
+        if (adminPswd === "rahsia123") { 
+            // Gantikan "9999" dengan PIN Admin Google Apps Script sebenar anda
+            pinSemasa = "9999"; 
+        } else {
+            // Gantikan "1234" dengan PIN User biasa
+            pinSemasa = "1234"; 
         }
-        statusText.style.color = "var(--primary)";
-        statusText.innerText = "Memeriksa akses pangkalan data...";
         
-        fetch(`${GAS_URL}?pin=${pin}&action=getData`)
+        muatTurunData();
+    };
+
+    function muatTurunData() {
+        const loadingText = document.getElementById('loading-text');
+        
+        fetch(`${GAS_URL}?pin=${pinSemasa}&action=getData`)
             .then(response => response.json())
             .then(data => {
                 if(data.status === "SUCCESS") {
-                    pinSemasa = pin;
                     paparDashboard(data);
                 } else {
-                    statusText.style.color = "var(--danger)";
-                    statusText.innerText = "PIN Salah. Sila cuba lagi.";
+                    loadingText.innerText = "Gagal memuatkan rekod. Sila hubungi admin.";
+                    loadingText.style.color = "var(--danger)";
                 }
             })
             .catch(error => {
-                statusText.style.color = "var(--danger)";
-                statusText.innerText = "Ralat sambungan internet.";
+                loadingText.innerText = "Ralat pelayan / Tiada internet.";
+                loadingText.style.color = "var(--danger)";
             });
     }
 
     function paparDashboard(data) {
-        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('loading-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         
         const peranan = data.peranan;
         document.getElementById('user-role').innerHTML = peranan === "ADMIN" ? "👑 <b>Panel Abah</b>" : "👤 <b>Hasif & Fatini</b>";
         
-        // Memuatkan Baki Hutang (gabungan baru)
+        // Tunjuk butang 'Keluar Admin' hanya jika berada dalam mod Admin
+        if (peranan === "ADMIN") {
+            document.getElementById('btn-keluar').classList.remove('hidden');
+        }
+        
         const dHutangAbah = parseFloat(data.ringkasan["Hutang Abah"] || 0);
         const dHutangEmak = parseFloat(data.ringkasan["Hutang Emak"] || 0);
         document.getElementById('baki-abah').innerText = "RM " + dHutangAbah.toFixed(2);
         document.getElementById('baki-emak').innerText = "RM " + dHutangEmak.toFixed(2);
 
-        // Memuatkan Dana Semasa
         const dVelozS = parseFloat(data.ringkasan["Dana Servis Veloz"] || 0);
         const dPersonaS = parseFloat(data.ringkasan["Dana Servis Persona"] || 0);
         const dVelozR = parseFloat(data.ringkasan["Dana Roadtax Veloz"] || 0);
@@ -298,9 +314,9 @@
         let adaRekod = false;
 
         sejarahTransaksi.forEach(t => {
-            if (t.jenis !== "Perbelanjaan" && t.jenis !== "Pendapatan") { // Abaikan rekod lama jika ada
+            if (t.jenis !== "Perbelanjaan" && t.jenis !== "Pendapatan") {
                 adaRekod = true;
-                let isKeluaran = t.jenis === "Pengeluaran Dana"; // Untuk membezakan warna
+                let isKeluaran = t.jenis === "Pengeluaran Dana";
                 let warna = isKeluaran ? "var(--danger)" : "var(--accent)";
                 let simbol = isKeluaran ? "-" : "+";
 
@@ -322,12 +338,9 @@
         document.getElementById('senarai-transaksi').innerHTML = htmlTransaksi;
     }
 
+    // Membuang parameter '?admin=' untuk kembali ke paparan USER biasa
     function logKeluar() {
-        pinSemasa = "";
-        document.getElementById('pin-input').value = "";
-        document.getElementById('login-status').innerText = "";
-        document.getElementById('dashboard-section').classList.add('hidden');
-        document.getElementById('login-section').classList.remove('hidden');
+        window.location.href = window.location.pathname;
     }
 
     // --- PENGURUSAN BAYARAN MASUK ---
@@ -363,7 +376,7 @@
             if(data.status === "SUCCESS") {
                 statusText.innerText = "✓ Berjaya direkodkan!";
                 statusText.style.color = "var(--accent)";
-                setTimeout(() => { tutupModalBayar(); document.getElementById('btn-hantar').disabled = false; logMasuk(); }, 1500);
+                setTimeout(() => { tutupModalBayar(); document.getElementById('btn-hantar').disabled = false; muatTurunData(); }, 1500);
             } else {
                 statusText.innerText = "Ralat: " + data.message;
                 statusText.style.color = "var(--danger)";
@@ -406,7 +419,7 @@
             if(data.status === "SUCCESS") {
                 statusText.innerText = "✓ Pengeluaran berjaya!";
                 statusText.style.color = "var(--accent)";
-                setTimeout(() => { tutupModalKeluar(); document.getElementById('btn-keluar').disabled = false; logMasuk(); }, 1500);
+                setTimeout(() => { tutupModalKeluar(); document.getElementById('btn-keluar').disabled = false; muatTurunData(); }, 1500);
             } else {
                 statusText.innerText = "Ralat: " + data.message;
                 statusText.style.color = "var(--danger)";
