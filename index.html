@@ -222,38 +222,34 @@
 </div>
 
 <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwVQVd52gEqiMPxDfiWz4LB63KESiasL_CDYfxBsE-_V8U9dwQ0_-HDBsLW5P-Bqks/exec"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbybsw0VFwZhmtzDF9sYae9KYkdUROpgV5JyKMWnJLjXhFiW4myZ_l1Q8UadnXcBvnw/exec"; 
     let pinSemasa = "";
 
     // Dijalankan secara automatik apabila laman web dibuka
     window.onload = function() {
-        // Semak URL Parameter
         const urlParams = new URLSearchParams(window.location.search);
         const adminPswd = urlParams.get('admin');
 
-        // --- TETAPAN KATA LALUAN ---
-        // Jika pautan ialah domain.com/?admin=rahsia123, ia akan jadi ADMIN.
         if (adminPswd === "rahsia123") { 
-            // Gantikan "9999" dengan PIN Admin Google Apps Script sebenar anda
-            pinSemasa = "9999"; 
+            pinSemasa = "9999"; // Mod Admin
         } else {
-            // Gantikan "1234" dengan PIN User biasa
-            pinSemasa = "1234"; 
+            pinSemasa = "1234"; // Mod User
         }
-        
         muatTurunData();
     };
 
     function muatTurunData() {
         const loadingText = document.getElementById('loading-text');
         
-        fetch(`${GAS_URL}?pin=${pinSemasa}&action=getData`)
+        // Memanggil data dari Google Apps Script
+        fetch(GAS_URL)
             .then(response => response.json())
             .then(data => {
-                if(data.status === "SUCCESS") {
+                // Semak jika GAS berjaya mengembalikan objek 'data'
+                if(data && data.data) {
                     paparDashboard(data);
                 } else {
-                    loadingText.innerText = "Gagal memuatkan rekod. Sila hubungi admin.";
+                    loadingText.innerText = "Gagal membaca format pangkalan data.";
                     loadingText.style.color = "var(--danger)";
                 }
             })
@@ -263,33 +259,70 @@
             });
     }
 
-    function paparDashboard(data) {
+    function paparDashboard(response) {
         document.getElementById('loading-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         
-        const peranan = data.peranan;
-        document.getElementById('user-role').innerHTML = peranan === "ADMIN" ? "👑 <b>Panel Abah</b>" : "👤 <b>Hasif & Fatini</b>";
+        const isAdmin = (pinSemasa === "9999");
+        document.getElementById('user-role').innerHTML = isAdmin ? "👑 <b>Panel Abah</b>" : "👤 <b>Hasif & Fatini</b>";
         
-        // Tunjuk butang 'Keluar Admin' hanya jika berada dalam mod Admin
-        if (peranan === "ADMIN") {
+        if (isAdmin) {
             document.getElementById('btn-keluar').classList.remove('hidden');
+            document.getElementById('tindakan-admin').classList.remove('hidden');
+            document.getElementById('tindakan-user').classList.add('hidden');
+        } else {
+            document.getElementById('tindakan-user').classList.remove('hidden');
+            document.getElementById('tindakan-admin').classList.add('hidden');
         }
         
-        const dHutangAbah = parseFloat(data.ringkasan["Hutang Abah"] || 0);
-        const dHutangEmak = parseFloat(data.ringkasan["Hutang Emak"] || 0);
-        document.getElementById('baki-abah').innerText = "RM " + dHutangAbah.toFixed(2);
-        document.getElementById('baki-emak').innerText = "RM " + dHutangEmak.toFixed(2);
+        // 1. Paparkan Baki Hutang (Pengiraan terus dari Backend)
+        document.getElementById('baki-abah').innerText = "RM " + parseFloat(response.totalAbah || 0).toFixed(2);
+        document.getElementById('baki-emak').innerText = "RM " + parseFloat(response.totalEmak || 0).toFixed(2);
 
-        const dVelozS = parseFloat(data.ringkasan["Dana Servis Veloz"] || 0);
-        const dPersonaS = parseFloat(data.ringkasan["Dana Servis Persona"] || 0);
-        const dVelozR = parseFloat(data.ringkasan["Dana Roadtax Veloz"] || 0);
-        const dPersonaR = parseFloat(data.ringkasan["Dana Roadtax Persona"] || 0);
-        const dTabungan = parseFloat(data.ringkasan["Tabungan Masa Depan"] || 0);
+        // 2. Kiraan Tabungan & Sejarah Transaksi
+        const senarai = response.data || [];
+        let dVelozS = 0, dPersonaS = 0, dVelozR = 0, dPersonaR = 0, dTabungan = 0;
+        let htmlTransaksi = "";
+        let adaRekod = false;
 
+        // Pusingkan senarai supaya rekod terkini berada di atas
+        const senaraiTerbalik = [...senarai].reverse();
+
+        senaraiTerbalik.forEach(t => {
+            const jumlah = Number(t["Jumlah"]) || 0;
+            const jenis = String(t["Jenis"] || "");
+            const tarikh = String(t["Tarikh"] || "");
+            const status = String(t["Status"] || "");
+
+            // Tambah nilai ke dalam tabung jika nama sepadan
+            if(jenis.includes("Servis Veloz")) dVelozS += jumlah;
+            if(jenis.includes("Servis Persona")) dPersonaS += jumlah;
+            if(jenis.includes("Roadtax Veloz")) dVelozR += jumlah;
+            if(jenis.includes("Roadtax Persona")) dPersonaR += jumlah;
+            if(jenis.includes("Tabungan Masa Depan")) dTabungan += jumlah;
+
+            adaRekod = true;
+            let isKeluaran = jenis.toLowerCase().includes("pengeluaran");
+            let warna = isKeluaran ? "var(--danger)" : "var(--accent)";
+            let simbol = isKeluaran ? "-" : "+";
+
+            htmlTransaksi += `
+                <div class="transaksi-item">
+                    <div>
+                        <div style="font-weight:bold; font-size: 14px; color:#2c3e50;">${jenis}</div>
+                        <div class="transaksi-detail">${tarikh} • Status: ${status}</div>
+                    </div>
+                    <div style="color: ${warna}; font-weight: bold; font-size: 16px;">${simbol} RM ${jumlah.toFixed(2)}</div>
+                </div>
+            `;
+        });
+
+        // 3. Paparkan Jumlah Keseluruhan Dana
         const totalDana = dVelozS + dPersonaS + dVelozR + dPersonaR + dTabungan;
         document.getElementById('total-dana').innerText = "RM " + totalDana.toFixed(2);
 
-        const kunci = peranan === 'USER' ? '<span style="font-size:12px;">🔒</span>' : '';
+        // 4. Kemas kini senarai UI
+        const kunci = !isAdmin ? '<span style="font-size:12px;">🔒</span>' : '';
         document.getElementById('senarai-dana').innerHTML = `
             <div class="senarai-dana-item"><span>🚗 Servis Veloz</span> <b>RM ${dVelozS.toFixed(2)} ${kunci}</b></div>
             <div class="senarai-dana-item"><span>🚗 Servis Persona</span> <b>RM ${dPersonaS.toFixed(2)} ${kunci}</b></div>
@@ -301,44 +334,12 @@
             </div>
         `;
 
-        if(peranan === "ADMIN") {
-            document.getElementById('tindakan-admin').classList.remove('hidden');
-            document.getElementById('tindakan-user').classList.add('hidden');
-        } else {
-            document.getElementById('tindakan-user').classList.remove('hidden');
-            document.getElementById('tindakan-admin').classList.add('hidden');
-        }
-
-        const sejarahTransaksi = data.transaksi || [];
-        let htmlTransaksi = "";
-        let adaRekod = false;
-
-        sejarahTransaksi.forEach(t => {
-            if (t.jenis !== "Perbelanjaan" && t.jenis !== "Pendapatan") {
-                adaRekod = true;
-                let isKeluaran = t.jenis === "Pengeluaran Dana";
-                let warna = isKeluaran ? "var(--danger)" : "var(--accent)";
-                let simbol = isKeluaran ? "-" : "+";
-
-                htmlTransaksi += `
-                    <div class="transaksi-item">
-                        <div>
-                            <div style="font-weight:bold; font-size: 14px; color:#2c3e50;">${t.jenis}</div>
-                            <div class="transaksi-detail">${t.tarikh} • ${t.nota || t.kategori || ''}</div>
-                        </div>
-                        <div style="color: ${warna}; font-weight: bold; font-size: 16px;">${simbol} RM ${parseFloat(t.jumlah).toFixed(2)}</div>
-                    </div>
-                `;
-            }
-        });
-
         if (!adaRekod) {
             htmlTransaksi = "<p style='text-align:center; color:#95a5a6; font-size:14px; margin-top:20px;'>Belum ada rekod kewangan.</p>";
         }
         document.getElementById('senarai-transaksi').innerHTML = htmlTransaksi;
     }
 
-    // Membuang parameter '?admin=' untuk kembali ke paparan USER biasa
     function logKeluar() {
         window.location.href = window.location.pathname;
     }
@@ -347,12 +348,14 @@
     function bukaModalBayar() {
         document.getElementById('modal-bayar').classList.remove('hidden');
         document.getElementById('status-hantar').innerText = "";
-        document.getElementById('input-jumlah').value = "500.00";
+        document.getElementById('input-jumlah').value = "";
         document.getElementById('input-nota').value = "";
     }
+    
     function tutupModalBayar() {
         document.getElementById('modal-bayar').classList.add('hidden');
     }
+
     function hantarBayaran() {
         const jenis = document.getElementById('input-jenis').value;
         const jumlah = parseFloat(document.getElementById('input-jumlah').value);
@@ -368,17 +371,21 @@
         statusText.style.color = "var(--primary)";
         document.getElementById('btn-hantar').disabled = true;
 
+        // Gabungkan jenis dan nota supaya direkod penuh dalam Google Sheets
+        const jenisRekod = nota ? jenis + " (" + nota + ")" : jenis;
+
         fetch(GAS_URL, {
             method: "POST",
-            body: JSON.stringify({ action: "tambahTransaksi", pin: pinSemasa, jenis: jenis, kategori: "Rakaman Kewangan", jumlah: jumlah, nota: nota }),
+            body: JSON.stringify({ jenis: jenisRekod, jumlah: jumlah }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         }).then(res => res.json()).then(data => {
-            if(data.status === "SUCCESS") {
+            // Kod asal GAS menggunakan perkataan "berjaya"
+            if(data.status === "berjaya") {
                 statusText.innerText = "✓ Berjaya direkodkan!";
                 statusText.style.color = "var(--accent)";
                 setTimeout(() => { tutupModalBayar(); document.getElementById('btn-hantar').disabled = false; muatTurunData(); }, 1500);
             } else {
-                statusText.innerText = "Ralat: " + data.message;
+                statusText.innerText = "Ralat: " + data.error;
                 statusText.style.color = "var(--danger)";
                 document.getElementById('btn-hantar').disabled = false;
             }
@@ -392,9 +399,11 @@
         document.getElementById('input-keluar-jumlah').value = "";
         document.getElementById('input-keluar-tujuan').value = "";
     }
+    
     function tutupModalKeluar() {
         document.getElementById('modal-keluar').classList.add('hidden');
     }
+
     function hantarPengeluaran() {
         const jenisTabung = document.getElementById('input-keluar-jenis').value;
         const jumlah = parseFloat(document.getElementById('input-keluar-jumlah').value);
@@ -411,17 +420,20 @@
         statusText.style.color = "var(--primary)";
         document.getElementById('btn-keluar').disabled = true;
 
+        // Tulis sebagai Pengeluaran supaya mudah dibezakan dalam sistem
+        const jenisRekod = "Pengeluaran " + jenisTabung + " (" + tujuan + ")";
+
         fetch(GAS_URL, {
             method: "POST",
-            body: JSON.stringify({ action: "pengeluaranAdmin", pin: pinSemasa, jenisTabung: jenisTabung, jumlah: jumlah, tujuan: tujuan }),
+            body: JSON.stringify({ jenis: jenisRekod, jumlah: jumlah }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         }).then(res => res.json()).then(data => {
-            if(data.status === "SUCCESS") {
+            if(data.status === "berjaya") {
                 statusText.innerText = "✓ Pengeluaran berjaya!";
                 statusText.style.color = "var(--accent)";
                 setTimeout(() => { tutupModalKeluar(); document.getElementById('btn-keluar').disabled = false; muatTurunData(); }, 1500);
             } else {
-                statusText.innerText = "Ralat: " + data.message;
+                statusText.innerText = "Ralat: " + data.error;
                 statusText.style.color = "var(--danger)";
                 document.getElementById('btn-keluar').disabled = false;
             }
