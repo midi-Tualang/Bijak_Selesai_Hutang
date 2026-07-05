@@ -178,7 +178,7 @@
         
         <label style="font-size: 14px; font-weight: 600; color: #34495e;">Jenis Transaksi:</label>
         <select id="input-jenis">
-            <option value="Bayar Hutang">Masukkan Dana Biasa (RM 500)</option>
+            <option value="Bayar Hutang">Masukkan Dana Biasa</option>
             <option value="Abah tolong bayar hutang">Abah tolong bayar hutang</option>
             <option value="Hasif bayar semula hutang Abah">Hasif bayar semula hutang Abah</option>
             <option value="Emak tolong bayar hutang">Emak tolong bayar hutang</option>
@@ -234,6 +234,16 @@
         } else {
             pinSemasa = "1234"; 
         }
+        
+        // --- LOGIK AUTOMATIK RM 500 ---
+        document.getElementById('input-jenis').addEventListener('change', function() {
+            if (this.value.includes("Hasif bayar semula")) {
+                document.getElementById('input-jumlah').value = "500.00";
+            } else {
+                document.getElementById('input-jumlah').value = "";
+            }
+        });
+
         muatTurunData();
     };
 
@@ -275,21 +285,19 @@
         
         const sejarahTransaksi = data.transaksi || [];
         
-        // --- PENYELESAIAN ISU RM0.00: PENGIRAAN AUTOMATIK DARI SEJARAH TRANSAKSI ---
+        // --- KOD PRO: PENGIRAAN KEBAL (CASE-INSENSITIVE) ---
         let kiraAbah = 0;
         let kiraEmak = 0;
         
         sejarahTransaksi.forEach(t => {
-            const jumlah = parseFloat(t.jumlah) || 0;
-            const jenisText = String(t.jenis).toLowerCase();
+            const jumlah = parseFloat(t.Jumlah || t.jumlah) || 0;
+            const jenisText = String(t.Jenis || t.jenis || "").toLowerCase();
             
-            // Tambah Hutang
             if (jenisText.includes("abah tolong bayar")) {
                 kiraAbah += jumlah;
             } else if (jenisText.includes("emak tolong bayar")) {
                 kiraEmak += jumlah;
             } 
-            // Tolak Hutang apabila bayaran semula dibuat
             else if (jenisText.includes("hasif bayar semula hutang abah") || (jenisText.includes("hasif bayar semula") && !jenisText.includes("emak"))) {
                 kiraAbah -= jumlah;
             } else if (jenisText.includes("hasif bayar semula hutang emak")) {
@@ -297,8 +305,8 @@
             }
         });
 
-        document.getElementById('baki-abah').innerText = "RM " + kiraAbah.toFixed(2);
-        document.getElementById('baki-emak').innerText = "RM " + kiraEmak.toFixed(2);
+        document.getElementById('baki-abah').innerText = "RM " + Math.abs(kiraAbah).toFixed(2);
+        document.getElementById('baki-emak').innerText = "RM " + Math.abs(kiraEmak).toFixed(2);
         // -------------------------------------------------------------------------
 
         const dVelozS = parseFloat(data.ringkasan["Dana Servis Veloz"] || 0);
@@ -325,22 +333,27 @@
         let htmlTransaksi = "";
         let adaRekod = false;
 
+        // --- KOD PRO: PASTIKAN SEJARAH TRANSAKSI BACA HURUF BESAR & KECIL ---
         sejarahTransaksi.forEach(t => {
-            if (t.jenis !== "Perbelanjaan" && t.jenis !== "Pendapatan") {
+            const jenisTrans = t.Jenis || t.jenis || "";
+            const tarikhTrans = t.Tarikh || t.tarikh || "";
+            const jumlahTrans = parseFloat(t.Jumlah || t.jumlah) || 0;
+            const notaTrans = t.Nota || t.nota || t.kategori || "";
+
+            if (jenisTrans !== "Perbelanjaan" && jenisTrans !== "Pendapatan") {
                 adaRekod = true;
                 
-                // Warnakan merah (Tolak) untuk pengeluaran atau bayaran semula
-                let isKeluaran = t.jenis.toLowerCase().includes("pengeluaran") || t.jenis.toLowerCase().includes("bayar semula");
+                let isKeluaran = jenisTrans.toLowerCase().includes("pengeluaran") || jenisTrans.toLowerCase().includes("bayar semula");
                 let warna = isKeluaran ? "var(--danger)" : "var(--accent)";
                 let simbol = isKeluaran ? "-" : "+";
 
                 htmlTransaksi += `
                     <div class="transaksi-item">
                         <div>
-                            <div style="font-weight:bold; font-size: 14px; color:#2c3e50;">${t.jenis}</div>
-                            <div class="transaksi-detail">${t.tarikh} • ${t.nota || t.kategori || ''}</div>
+                            <div style="font-weight:bold; font-size: 14px; color:#2c3e50;">${jenisTrans}</div>
+                            <div class="transaksi-detail">${tarikhTrans} • ${notaTrans}</div>
                         </div>
-                        <div style="color: ${warna}; font-weight: bold; font-size: 16px;">${simbol} RM ${parseFloat(t.jumlah).toFixed(2)}</div>
+                        <div style="color: ${warna}; font-weight: bold; font-size: 16px;">${simbol} RM ${jumlahTrans.toFixed(2)}</div>
                     </div>
                 `;
             }
@@ -359,8 +372,15 @@
     function bukaModalBayar() {
         document.getElementById('modal-bayar').classList.remove('hidden');
         document.getElementById('status-hantar').innerText = "";
-        document.getElementById('input-jumlah').value = "500.00";
         document.getElementById('input-nota').value = "";
+        
+        // --- LOGIK AUTOMATIK RM 500 SEMASA BORANG DIBUKA ---
+        const jenisSemasa = document.getElementById('input-jenis').value;
+        if (jenisSemasa.includes("Hasif bayar semula")) {
+            document.getElementById('input-jumlah').value = "500.00";
+        } else {
+            document.getElementById('input-jumlah').value = ""; 
+        }
     }
     
     function tutupModalBayar() {
