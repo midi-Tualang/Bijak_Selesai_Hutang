@@ -254,7 +254,7 @@
         fetch(urlDenganParameter)
             .then(response => response.json())
             .then(data => {
-                if(data.status === "SUCCESS") {
+                if(data.status === "SUCCESS" || data.data) {
                     paparDashboard(data);
                 } else {
                     loadingText.innerText = "Ralat: " + (data.message || "Gagal memuatkan rekod.");
@@ -271,7 +271,7 @@
         document.getElementById('loading-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         
-        const peranan = data.peranan;
+        const peranan = data.peranan || (pinSemasa === "9999" ? "ADMIN" : "USER");
         document.getElementById('user-role').innerHTML = peranan === "ADMIN" ? "👑 <b>Panel Abah</b>" : "👤 <b>Hasif & Fatini</b>";
         
         if (peranan === "ADMIN") {
@@ -283,37 +283,79 @@
             document.getElementById('tindakan-admin').classList.add('hidden');
         }
         
-        const sejarahTransaksi = data.transaksi || [];
+        // --- KOD PRO: PENCARIAN REKOD SECARA DINAMIK & KESAN AUTOMATIK ---
+        // Kod ini akan secara pintar mencari data sama ada ia dinamakan data.transaksi, data.data, atau data.records
+        let sejarahTransaksi = data.transaksi || data.data || data.records || [];
         
-        // --- KOD PRO: PENGIRAAN KEBAL (CASE-INSENSITIVE) ---
+        if (sejarahTransaksi.length === 0) {
+            for (let key in data) {
+                if (Array.isArray(data[key]) && data[key].length > 0) {
+                    sejarahTransaksi = data[key];
+                    break;
+                }
+            }
+        }
+        
         let kiraAbah = 0;
         let kiraEmak = 0;
+        let htmlTransaksi = "";
+        let adaRekod = false;
         
         sejarahTransaksi.forEach(t => {
-            const jumlah = parseFloat(t.Jumlah || t.jumlah) || 0;
-            const jenisText = String(t.Jenis || t.jenis || "").toLowerCase();
+            // Pengimbas automatik tak kira Huruf Besar, kecil atau ada jarak (space)
+            const kJumlah = Object.keys(t).find(k => k.toLowerCase().trim() === 'jumlah');
+            const kJenis = Object.keys(t).find(k => k.toLowerCase().trim() === 'jenis');
+            const kTarikh = Object.keys(t).find(k => k.toLowerCase().trim() === 'tarikh');
+            const kNota = Object.keys(t).find(k => k.toLowerCase().trim() === 'nota' || k.toLowerCase().trim() === 'kategori');
+
+            const jumlah = parseFloat(t[kJumlah]) || 0;
+            const jenisText = String(t[kJenis] || "").toLowerCase().trim();
+            const jenisTrans = String(t[kJenis] || "");
+            const tarikhTrans = String(t[kTarikh] || "");
+            const notaTrans = String(t[kNota] || "");
             
+            // Pengiraan Automatik Hutang
             if (jenisText.includes("abah tolong bayar")) {
                 kiraAbah += jumlah;
             } else if (jenisText.includes("emak tolong bayar")) {
                 kiraEmak += jumlah;
-            } 
-            else if (jenisText.includes("hasif bayar semula hutang abah") || (jenisText.includes("hasif bayar semula") && !jenisText.includes("emak"))) {
+            } else if (jenisText.includes("hasif bayar semula hutang abah") || (jenisText.includes("hasif bayar semula") && !jenisText.includes("emak"))) {
                 kiraAbah -= jumlah;
             } else if (jenisText.includes("hasif bayar semula hutang emak")) {
                 kiraEmak -= jumlah;
             }
+
+            // Senaraikan di bahagian Sejarah
+            if (jenisTrans && !jenisText.includes("perbelanjaan") && !jenisText.includes("pendapatan")) {
+                adaRekod = true;
+                let isKeluaran = jenisText.includes("pengeluaran") || jenisText.includes("bayar semula");
+                let warna = isKeluaran ? "var(--danger)" : "var(--accent)";
+                let simbol = isKeluaran ? "-" : "+";
+
+                htmlTransaksi += `
+                    <div class="transaksi-item">
+                        <div>
+                            <div style="font-weight:bold; font-size: 14px; color:#2c3e50;">${jenisTrans}</div>
+                            <div class="transaksi-detail">${tarikhTrans} ${notaTrans ? '• ' + notaTrans : ''}</div>
+                        </div>
+                        <div style="color: ${warna}; font-weight: bold; font-size: 16px;">${simbol} RM ${jumlah.toFixed(2)}</div>
+                    </div>
+                `;
+            }
         });
 
+        // Keluarkan Nilai ke Skrin
         document.getElementById('baki-abah').innerText = "RM " + Math.abs(kiraAbah).toFixed(2);
         document.getElementById('baki-emak').innerText = "RM " + Math.abs(kiraEmak).toFixed(2);
+        
         // -------------------------------------------------------------------------
 
-        const dVelozS = parseFloat(data.ringkasan["Dana Servis Veloz"] || 0);
-        const dPersonaS = parseFloat(data.ringkasan["Dana Servis Persona"] || 0);
-        const dVelozR = parseFloat(data.ringkasan["Dana Roadtax Veloz"] || 0);
-        const dPersonaR = parseFloat(data.ringkasan["Dana Roadtax Persona"] || 0);
-        const dTabungan = parseFloat(data.ringkasan["Tabungan Masa Depan"] || 0);
+        const ringkasan = data.ringkasan || {};
+        const dVelozS = parseFloat(ringkasan["Dana Servis Veloz"] || 0);
+        const dPersonaS = parseFloat(ringkasan["Dana Servis Persona"] || 0);
+        const dVelozR = parseFloat(ringkasan["Dana Roadtax Veloz"] || 0);
+        const dPersonaR = parseFloat(ringkasan["Dana Roadtax Persona"] || 0);
+        const dTabungan = parseFloat(ringkasan["Tabungan Masa Depan"] || 0);
 
         const totalDana = dVelozS + dPersonaS + dVelozR + dPersonaR + dTabungan;
         document.getElementById('total-dana').innerText = "RM " + totalDana.toFixed(2);
@@ -330,38 +372,10 @@
             </div>
         `;
 
-        let htmlTransaksi = "";
-        let adaRekod = false;
-
-        // --- KOD PRO: PASTIKAN SEJARAH TRANSAKSI BACA HURUF BESAR & KECIL ---
-        sejarahTransaksi.forEach(t => {
-            const jenisTrans = t.Jenis || t.jenis || "";
-            const tarikhTrans = t.Tarikh || t.tarikh || "";
-            const jumlahTrans = parseFloat(t.Jumlah || t.jumlah) || 0;
-            const notaTrans = t.Nota || t.nota || t.kategori || "";
-
-            if (jenisTrans !== "Perbelanjaan" && jenisTrans !== "Pendapatan") {
-                adaRekod = true;
-                
-                let isKeluaran = jenisTrans.toLowerCase().includes("pengeluaran") || jenisTrans.toLowerCase().includes("bayar semula");
-                let warna = isKeluaran ? "var(--danger)" : "var(--accent)";
-                let simbol = isKeluaran ? "-" : "+";
-
-                htmlTransaksi += `
-                    <div class="transaksi-item">
-                        <div>
-                            <div style="font-weight:bold; font-size: 14px; color:#2c3e50;">${jenisTrans}</div>
-                            <div class="transaksi-detail">${tarikhTrans} • ${notaTrans}</div>
-                        </div>
-                        <div style="color: ${warna}; font-weight: bold; font-size: 16px;">${simbol} RM ${jumlahTrans.toFixed(2)}</div>
-                    </div>
-                `;
-            }
-        });
-
         if (!adaRekod) {
             htmlTransaksi = "<p style='text-align:center; color:#95a5a6; font-size:14px; margin-top:20px;'>Belum ada rekod kewangan.</p>";
         }
+        // Terbalikkan senarai supaya yang terkini (bawah sekali dalam Sheets) berada di atas aplikasi
         document.getElementById('senarai-transaksi').innerHTML = htmlTransaksi;
     }
 
@@ -374,7 +388,6 @@
         document.getElementById('status-hantar').innerText = "";
         document.getElementById('input-nota').value = "";
         
-        // --- LOGIK AUTOMATIK RM 500 SEMASA BORANG DIBUKA ---
         const jenisSemasa = document.getElementById('input-jenis').value;
         if (jenisSemasa.includes("Hasif bayar semula")) {
             document.getElementById('input-jumlah').value = "500.00";
