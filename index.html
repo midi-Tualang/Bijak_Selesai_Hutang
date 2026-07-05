@@ -324,6 +324,7 @@
         }
 
         // FUNGSI PRO: PENGHALAAN (ROUTING) DATA PINTAR
+        // FUNGSI PRO: PENGHALAAN PINTAR & PENTERJEMAHAN FORMAT DATA
         async function hantarData(event) {
             event.preventDefault();
             const btn = document.getElementById('butangHantar');
@@ -332,20 +333,33 @@
 
             const jumlah = parseFloat(document.getElementById('jumlah').value);
             const jenis = document.getElementById('jenis').value;
-            const nota = document.getElementById('nota').value || "Kemasukan";
+            const nota = document.getElementById('nota').value || "Bayaran bulanan";
 
             try {
-                let penghantaran = []; // Senarai "tugas" tembakan data
+                let penghantaran = []; // Senarai tugas penghantaran data
 
-                // LOGIK 1: Hasif bayar semula (Tembak ke DUA-DUA)
+                // LOGIK 1: Hasif bayar semula hutang (Tembak ke DUA-DUA pangkalan data)
                 if (jenis.includes("Hasif bayar semula")) {
+                    // Terjemah nama kategori secara dinamik mengikut pilihan borang
+                    let kategoriDana = jenis.includes("Abah") ? "Kepada Abah" : "Kepada Emak";
+
+                    // A. Hantar ke Skrip Dana Lama (Log_Transaksi) dengan format tegar yang wajib
                     penghantaran.push(
                         fetch(URL_DANA, {
                             method: 'POST',
-                            body: JSON.stringify({ action: "tambahTransaksi", pin: "9999", jenis: jenis, jumlah: jumlah, nota: nota }),
+                            body: JSON.stringify({ 
+                                action: "tambahTransaksi", 
+                                pin: "9999", 
+                                jenis: "Bayar Hutang",   // Wajib diganti dengan nilai ini untuk cetus formula agihan
+                                kategori: kategoriDana,  // Lajur Kategori dalam Log_Transaksi
+                                jumlah: jumlah, 
+                                nota: nota 
+                            }),
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
                         })
                     );
+
+                    // B. Hantar ke Skrip Hutang Baru (Transaksi) untuk proses status "Menunggu"
                     penghantaran.push(
                         fetch(URL_HUTANG, {
                             method: 'POST',
@@ -354,17 +368,24 @@
                         })
                     );
                 } 
-                // LOGIK 2: Masukkan Dana Biasa (Tembak ke DANA sahaja)
+                // LOGIK 2: Masukkan Dana Biasa (Tembak ke DANA sahaja - Log_Transaksi)
                 else if (jenis === "Bayar Hutang") { 
                     penghantaran.push(
                         fetch(URL_DANA, {
                             method: 'POST',
-                            body: JSON.stringify({ action: "tambahTransaksi", pin: "9999", jenis: jenis, jumlah: jumlah, nota: nota }),
+                            body: JSON.stringify({ 
+                                action: "tambahTransaksi", 
+                                pin: "9999", 
+                                jenis: "Bayar Hutang", 
+                                kategori: "Kepada Abah", 
+                                jumlah: jumlah, 
+                                nota: nota 
+                            }),
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
                         })
                     );
                 } 
-                // LOGIK 3: Abah/Emak tolong bayar (Tembak ke HUTANG sahaja)
+                // LOGIK 3: Abah/Emak tolong bayar hutang (Tembak ke HUTANG sahaja - Transaksi)
                 else if (jenis.includes("tolong bayar")) {
                     penghantaran.push(
                         fetch(URL_HUTANG, {
@@ -375,7 +396,7 @@
                     );
                 }
 
-                // Laksanakan tembakan serentak mengikut susunan lampu isyarat di atas
+                // Laksanakan semua proses penghantaran data secara serentak
                 await Promise.all(penghantaran);
                 
                 tutupModal();
@@ -383,10 +404,10 @@
                 btn.innerHTML = 'Sahkan & Hantar';
                 btn.disabled = false;
                 
-                // Muat semula skrin untuk paparkan baki dan dana terkini
+                // Muat semula semua baki dan pecahan dana di skrin
                 muatData();
             } catch (error) {
-                alert('Gagal merekod. Sila cuba lagi.');
+                alert('Gagal merekod transaksi. Sila cuba lagi.');
                 btn.innerHTML = 'Sahkan & Hantar';
                 btn.disabled = false;
             }
