@@ -323,8 +323,7 @@
             });
         }
 
-        // FUNGSI PRO: PENGHALAAN (ROUTING) DATA PINTAR
-        // FUNGSI PRO: PENGHALAAN PINTAR & PENTERJEMAHAN FORMAT DATA
+        // FUNGSI PRO: PENGHALAAN PINTAR DENGAN PENGESAN RALAT
         async function hantarData(event) {
             event.preventDefault();
             const btn = document.getElementById('butangHantar');
@@ -336,42 +335,46 @@
             const nota = document.getElementById('nota').value || "Bayaran bulanan";
 
             try {
-                let penghantaran = []; // Senarai tugas penghantaran data
+                let ralatDikesan = ""; // Alat pengumpul amaran
 
-                // LOGIK 1: Hasif bayar semula hutang (Tembak ke DUA-DUA pangkalan data)
+                // LOGIK 1: Hasif bayar semula (Tembak ke DUA-DUA pangkalan data)
                 if (jenis.includes("Hasif bayar semula")) {
-                    // Terjemah nama kategori secara dinamik mengikut pilihan borang
                     let kategoriDana = jenis.includes("Abah") ? "Kepada Abah" : "Kepada Emak";
 
-                    // A. Hantar ke Skrip Dana Lama (Log_Transaksi) dengan format tegar yang wajib
-                    penghantaran.push(
-                        fetch(URL_DANA, {
+                    // A. Tembak ke Skrip Dana Lama (Log_Transaksi)
+                    try {
+                        const resDana = await fetch(URL_DANA, {
                             method: 'POST',
                             body: JSON.stringify({ 
                                 action: "tambahTransaksi", 
                                 pin: "9999", 
-                                jenis: "Bayar Hutang",   // Wajib diganti dengan nilai ini untuk cetus formula agihan
-                                kategori: kategoriDana,  // Lajur Kategori dalam Log_Transaksi
+                                jenis: "Bayar Hutang", 
+                                kategori: kategoriDana, 
                                 jumlah: jumlah, 
                                 nota: nota 
                             }),
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
-                        })
-                    );
+                        });
+                        const dataDana = await resDana.json();
+                        if (dataDana.status !== "SUCCESS") ralatDikesan += "\n- Penolakan Dana: " + (dataDana.message || "Ralat tidak diketahui");
+                    } catch (e) { ralatDikesan += "\n- Gagal menghubungi Skrip Dana."; }
 
-                    // B. Hantar ke Skrip Hutang Baru (Transaksi) untuk proses status "Menunggu"
-                    penghantaran.push(
-                        fetch(URL_HUTANG, {
+                    // B. Tembak ke Skrip Hutang Baru (Transaksi)
+                    try {
+                        const resHutang = await fetch(URL_HUTANG, {
                             method: 'POST',
                             body: JSON.stringify({ jumlah: jumlah, jenis: jenis }),
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
-                        })
-                    );
+                        });
+                        const dataHutang = await resHutang.json();
+                        if (dataHutang.status !== "berjaya" && dataHutang.status !== "SUCCESS") ralatDikesan += "\n- Penolakan Hutang: " + (dataHutang.error || "Ralat tidak diketahui");
+                    } catch (e) { ralatDikesan += "\n- Gagal menghubungi Skrip Hutang."; }
                 } 
+                
                 // LOGIK 2: Masukkan Dana Biasa (Tembak ke DANA sahaja - Log_Transaksi)
                 else if (jenis === "Bayar Hutang") { 
-                    penghantaran.push(
-                        fetch(URL_DANA, {
+                    try {
+                        const resDana = await fetch(URL_DANA, {
                             method: 'POST',
                             body: JSON.stringify({ 
                                 action: "tambahTransaksi", 
@@ -382,32 +385,38 @@
                                 nota: nota 
                             }),
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
-                        })
-                    );
+                        });
+                        const dataDana = await resDana.json();
+                        if (dataDana.status !== "SUCCESS") ralatDikesan += "\n- Penolakan Dana: " + (dataDana.message || "Ralat tidak diketahui");
+                    } catch (e) { ralatDikesan += "\n- Gagal menghubungi Skrip Dana."; }
                 } 
+                
                 // LOGIK 3: Abah/Emak tolong bayar hutang (Tembak ke HUTANG sahaja - Transaksi)
                 else if (jenis.includes("tolong bayar")) {
-                    penghantaran.push(
-                        fetch(URL_HUTANG, {
+                    try {
+                        const resHutang = await fetch(URL_HUTANG, {
                             method: 'POST',
                             body: JSON.stringify({ jumlah: jumlah, jenis: jenis }),
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
-                        })
-                    );
+                        });
+                        const dataHutang = await resHutang.json();
+                        if (dataHutang.status !== "berjaya" && dataHutang.status !== "SUCCESS") ralatDikesan += "\n- Penolakan Hutang: " + (dataHutang.error || "Ralat tidak diketahui");
+                    } catch (e) { ralatDikesan += "\n- Gagal menghubungi Skrip Hutang."; }
                 }
 
-                // Laksanakan semua proses penghantaran data secara serentak
-                await Promise.all(penghantaran);
+                // PAPARKAN KEPUTUSAN
+                if (ralatDikesan !== "") {
+                    alert("AMARAN: Sebahagian data tidak masuk ke Google Sheets! Sila semak mesej ralat ini:\n" + ralatDikesan);
+                }
                 
                 tutupModal();
                 document.getElementById('borangTransaksi').reset();
                 btn.innerHTML = 'Sahkan & Hantar';
                 btn.disabled = false;
                 
-                // Muat semula semua baki dan pecahan dana di skrin
                 muatData();
             } catch (error) {
-                alert('Gagal merekod transaksi. Sila cuba lagi.');
+                alert('Ralat sistem utama. Sila cuba lagi.');
                 btn.innerHTML = 'Sahkan & Hantar';
                 btn.disabled = false;
             }
