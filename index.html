@@ -323,6 +323,7 @@
             });
         }
 
+        // FUNGSI PRO: PENGHALAAN (ROUTING) DATA PINTAR
         async function hantarData(event) {
             event.preventDefault();
             const btn = document.getElementById('butangHantar');
@@ -334,17 +335,55 @@
             const nota = document.getElementById('nota').value || "Kemasukan";
 
             try {
-                await fetch(URL_DANA, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: "tambahTransaksi", pin: "9999", jenis: jenis, jumlah: jumlah, nota: nota }),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
-                });
+                let penghantaran = []; // Senarai "tugas" tembakan data
+
+                // LOGIK 1: Hasif bayar semula (Tembak ke DUA-DUA)
+                if (jenis.includes("Hasif bayar semula")) {
+                    penghantaran.push(
+                        fetch(URL_DANA, {
+                            method: 'POST',
+                            body: JSON.stringify({ action: "tambahTransaksi", pin: "9999", jenis: jenis, jumlah: jumlah, nota: nota }),
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                        })
+                    );
+                    penghantaran.push(
+                        fetch(URL_HUTANG, {
+                            method: 'POST',
+                            body: JSON.stringify({ jumlah: jumlah, jenis: jenis }),
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                        })
+                    );
+                } 
+                // LOGIK 2: Masukkan Dana Biasa (Tembak ke DANA sahaja)
+                else if (jenis === "Bayar Hutang") { 
+                    penghantaran.push(
+                        fetch(URL_DANA, {
+                            method: 'POST',
+                            body: JSON.stringify({ action: "tambahTransaksi", pin: "9999", jenis: jenis, jumlah: jumlah, nota: nota }),
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                        })
+                    );
+                } 
+                // LOGIK 3: Abah/Emak tolong bayar (Tembak ke HUTANG sahaja)
+                else if (jenis.includes("tolong bayar")) {
+                    penghantaran.push(
+                        fetch(URL_HUTANG, {
+                            method: 'POST',
+                            body: JSON.stringify({ jumlah: jumlah, jenis: jenis }),
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                        })
+                    );
+                }
+
+                // Laksanakan tembakan serentak mengikut susunan lampu isyarat di atas
+                await Promise.all(penghantaran);
                 
                 tutupModal();
                 document.getElementById('borangTransaksi').reset();
                 btn.innerHTML = 'Sahkan & Hantar';
                 btn.disabled = false;
                 
+                // Muat semula skrin untuk paparkan baki dan dana terkini
                 muatData();
             } catch (error) {
                 alert('Gagal merekod. Sila cuba lagi.');
