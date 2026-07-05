@@ -9,10 +9,7 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="Pemantau Akaun - Rekod & Pengesahan Transaksi">
     <meta property="og:description" content="Semak baki hutang Abah, Emak, Dana dan Tabungan keluarga.">
-    <meta property="og:image" content="https://midi-tualang.github.io/Bijak_Selesai_Hutang/image/pemantau_akaun.jpg">
-    <meta property="og:url" content="https://midi-tualang.github.io/Bijak_Selesai_Hutang/">
-    <link rel="icon" type="image/jpeg" href="https://midi-tualang.github.io/Bijak_Selesai_Hutang/image/pemantau_akaun.jpg">
-
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -25,7 +22,6 @@
 
     <div class="max-w-md mx-auto space-y-6">
         
-        <!-- HEADER -->
         <header class="flex justify-between items-center py-4">
             <div>
                 <h1 class="text-2xl font-bold text-white">Pemantau Akaun</h1>
@@ -159,11 +155,9 @@
     </div>
 
     <script>
-        // KITA GUNAKAN KEDUA-DUA SKRIP SECARA SERENTAK UNTUK PRESTASI MAKSIMUM
         const URL_HUTANG = "https://script.google.com/macros/s/AKfycbwVQVd52gEqiMPxDfiWz4LB63KESiasL_CDYfxBsE-_V8U9dwQ0_-HDBsLW5P-Bqks/exec";
         const URL_DANA = "https://script.google.com/macros/s/AKfycbybsw0VFwZhmtzDF9sYae9KYkdUROpgV5JyKMWnJLjXhFiW4myZ_l1Q8UadnXcBvnw/exec";
 
-        // Fungsi Automatik Isi RM 500
         document.getElementById('jenis').addEventListener('change', function() {
             if (this.value.includes("Hasif bayar semula")) {
                 document.getElementById('jumlah').value = "500.00";
@@ -172,7 +166,6 @@
             }
         });
 
-        // Pengawal Modal UI
         function bukaModal() { 
             document.getElementById('modalBorang').style.display = 'flex'; 
             if (document.getElementById('jenis').value.includes("Hasif bayar semula")) {
@@ -183,13 +176,11 @@
         function bukaModalKeluar() { document.getElementById('modalKeluar').style.display = 'flex'; }
         function tutupModalKeluar() { document.getElementById('modalKeluar').style.display = 'none'; }
 
-        // FUNGSI UTAMA: MENARIK DARI 2 PANGKALAN DATA
         async function muatData() {
             const container = document.getElementById('senaraiTransaksi');
             container.innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Menyegerak sistem...</p>';
 
             try {
-                // Menarik data daripada Skrip Hutang (New) dan Skrip Dana (Old) secara serentak
                 const [resHutang, resDana] = await Promise.all([
                     fetch(URL_HUTANG).then(r => r.json()).catch(() => ({})),
                     fetch(`${URL_DANA}?pin=9999&action=getData`).then(r => r.json()).catch(() => ({}))
@@ -201,19 +192,48 @@
             }
         }
 
-        // FUNGSI PAPAR DATA
         function paparData(resHutang, resDana) {
             
-            // 1. KEMASKINI SEKSYEN HUTANG (Dari Skrip Baharu)
-            const bakiAbah = Number(resHutang.totalAbah) || 0;
-            const bakiEmak = Number(resHutang.totalEmak) || 0;
-            const bakiKeseluruhan = Number(resHutang.totalKeseluruhan) || (bakiAbah + bakiEmak);
-            
-            document.getElementById('bakiHutangAbah').innerText = `RM ${bakiAbah.toFixed(2)}`;
-            document.getElementById('bakiHutangEmak').innerText = `RM ${bakiEmak.toFixed(2)}`;
-            document.getElementById('bakiHutangKeseluruhan').innerText = `RM ${bakiKeseluruhan.toFixed(2)}`;
+            // --- 1. PENGIRAAN FRONTEND KEBAL UNTUK HUTANG ---
+            const dataHutang = resHutang.data || [];
+            let bakiAbah = 0;
+            let bakiEmak = 0;
 
-            // 2. KEMASKINI SEKSYEN DANA (Dari Skrip Lama)
+            dataHutang.forEach(item => {
+                // Pengimbas "Mata Helang" - akan cari apa sahaja lajur yang ada ejaan "jenis", "kategori", "jumlah"
+                const kJenis = Object.keys(item).find(k => k.toLowerCase().includes('jenis'));
+                const kKategori = Object.keys(item).find(k => k.toLowerCase().includes('kategori'));
+                const kJumlah = Object.keys(item).find(k => k.toLowerCase().includes('jumlah')); 
+                
+                const jenisTxt = kJenis ? String(item[kJenis]).toLowerCase() : "";
+                const kategoriTxt = kKategori ? String(item[kKategori]).toLowerCase() : "";
+                const jumlahVal = kJumlah ? parseFloat(item[kJumlah]) : 0;
+
+                if (!isNaN(jumlahVal)) {
+                    if (jenisTxt.includes("abah tolong bayar")) {
+                        bakiAbah += jumlahVal;
+                    } else if (jenisTxt.includes("emak tolong bayar")) {
+                        bakiEmak += jumlahVal;
+                    } else if (jenisTxt.includes("hasif bayar semula hutang abah") || (jenisTxt.includes("hasif bayar semula") && !jenisTxt.includes("emak")) || kategoriTxt.includes("kepada abah")) {
+                        bakiAbah -= jumlahVal;
+                    } else if (jenisTxt.includes("hasif bayar semula hutang emak") || kategoriTxt.includes("kepada emak")) {
+                        bakiEmak -= jumlahVal;
+                    } else if (jenisTxt.includes("bayar hutang") && kategoriTxt.includes("abah")) { 
+                        // Menampung logik format sheet Log_Transaksi
+                        bakiAbah -= jumlahVal;
+                    } else if (jenisTxt.includes("bayar hutang") && kategoriTxt.includes("emak")) {
+                        bakiEmak -= jumlahVal;
+                    }
+                }
+            });
+
+            const bakiKeseluruhan = bakiAbah + bakiEmak;
+            
+            document.getElementById('bakiHutangAbah').innerText = `RM ${Math.abs(bakiAbah).toFixed(2)}`;
+            document.getElementById('bakiHutangEmak').innerText = `RM ${Math.abs(bakiEmak).toFixed(2)}`;
+            document.getElementById('bakiHutangKeseluruhan').innerText = `RM ${Math.abs(bakiKeseluruhan).toFixed(2)}`;
+
+            // --- 2. KEMASKINI SEKSYEN DANA ---
             const ringkasan = resDana.ringkasan || {};
             const dVelozS = parseFloat(ringkasan["Dana Servis Veloz"] || 0);
             const dPersonaS = parseFloat(ringkasan["Dana Servis Persona"] || 0);
@@ -247,36 +267,38 @@
                 </div>
             `;
 
-            // 3. KEMASKINI SENARAI TRANSAKSI (Dari Skrip Baharu untuk fungsi 'Sah')
+            // --- 3. KEMASKINI SENARAI TRANSAKSI ---
             const container = document.getElementById('senaraiTransaksi');
             container.innerHTML = '';
-            const data = resHutang.data || [];
 
-            if (data.length === 0) {
+            if (dataHutang.length === 0) {
                 container.innerHTML = '<p class="text-center text-slate-500 text-sm">Tiada transaksi direkodkan.</p>';
                 return;
             }
 
-            data.reverse().forEach(item => {
-                // Imbasan Selamat (Case-Insensitive)
-                const kJenis = Object.keys(item).find(k => k.toLowerCase().trim() === 'jenis') || 'Jenis';
-                const kJumlah = Object.keys(item).find(k => k.toLowerCase().trim() === 'jumlah') || 'Jumlah';
-                const kTarikh = Object.keys(item).find(k => k.toLowerCase().trim() === 'tarikh') || 'Tarikh';
-                const kStatus = Object.keys(item).find(k => k.toLowerCase().trim() === 'status') || 'Status';
-                const kID = Object.keys(item).find(k => k.toLowerCase().trim() === 'id') || 'ID';
+            // Reverse supaya yang terkini (di bawah sheets) naik ke atas aplikasi
+            dataHutang.reverse().forEach(item => {
+                const kJenis = Object.keys(item).find(k => k.toLowerCase().includes('jenis'));
+                const kJumlah = Object.keys(item).find(k => k.toLowerCase().includes('jumlah'));
+                const kTarikh = Object.keys(item).find(k => k.toLowerCase().includes('tarikh'));
+                const kStatus = Object.keys(item).find(k => k.toLowerCase().includes('status'));
+                const kID = Object.keys(item).find(k => k.toLowerCase().includes('id'));
                 
-                const jenisString = String(item[kJenis] || "");
+                const jenisString = kJenis ? String(item[kJenis]) : "Transaksi";
+                const jumlahVal = kJumlah ? parseFloat(item[kJumlah]) : 0;
                 const isPengeluaran = jenisString.toLowerCase().includes("pengeluaran");
 
-                const isMenunggu = item[kStatus] === 'Menunggu';
+                const statusVal = kStatus ? item[kStatus] : "";
+                const isMenunggu = statusVal === 'Menunggu';
                 const statusColor = isMenunggu ? 'text-orange-400 bg-orange-400/10' : 'text-emerald-400 bg-emerald-400/10';
                 
                 let icon = isPengeluaran ? 'fa-arrow-left text-red-400' : 'fa-hand-holding-dollar text-emerald-400'; 
                 if (jenisString.includes('Abah tolong')) { icon = 'fa-building-columns text-purple-400'; } 
                 else if (jenisString.includes('Emak tolong')) { icon = 'fa-wallet text-pink-400'; }
 
-                const tarikhRaw = String(item[kTarikh] || "");
+                const tarikhRaw = kTarikh ? String(item[kTarikh]) : "";
                 const tarikhPendek = tarikhRaw.length > 10 ? tarikhRaw.substring(0, 10) : tarikhRaw;
+                const idVal = kID ? item[kID] : "";
 
                 const cardHTML = `
                     <div class="glass-card rounded-xl p-4 flex items-center justify-between hover:bg-slate-800/50 transition">
@@ -285,7 +307,7 @@
                                 <i class="fas ${icon}"></i>
                             </div>
                             <div>
-                                <p class="font-semibold text-white">RM ${parseFloat(item[kJumlah] || 0).toFixed(2)}</p>
+                                <p class="font-semibold text-white">RM ${jumlahVal.toFixed(2)}</p>
                                 <p class="text-xs text-slate-400">${tarikhPendek} • ${jenisString}</p>
                             </div>
                         </div>
@@ -293,7 +315,7 @@
                             <span class="text-xs px-2 py-1 rounded-md font-medium ${statusColor}">
                                 ${isMenunggu ? '<i class="fas fa-clock mr-1"></i> Menunggu' : '<i class="fas fa-check mr-1"></i> Sah'}
                             </span>
-                            ${isMenunggu ? `<button onclick="sahkanTransaksi('${item[kID]}')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto"><i class="fas fa-check-circle mr-1"></i> Sahkan</button>` : ''}
+                            ${isMenunggu && idVal ? `<button onclick="sahkanTransaksi('${idVal}')" class="block mt-2 text-xs text-blue-400 hover:text-blue-300 ml-auto"><i class="fas fa-check-circle mr-1"></i> Sahkan</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -301,7 +323,6 @@
             });
         }
 
-        // MENGHANTAR DATA MENGGUNAKAN SKRIP LAMA SUPAYA AGIHAN DANA BERFUNGSI
         async function hantarData(event) {
             event.preventDefault();
             const btn = document.getElementById('butangHantar');
@@ -313,7 +334,6 @@
             const nota = document.getElementById('nota').value || "Kemasukan";
 
             try {
-                // Post ke Skrip Lama (Dana) supaya ia mengira agihan ke setiap Tabungan
                 await fetch(URL_DANA, {
                     method: 'POST',
                     body: JSON.stringify({ action: "tambahTransaksi", pin: "9999", jenis: jenis, jumlah: jumlah, nota: nota }),
@@ -333,7 +353,6 @@
             }
         }
 
-        // PENGELUARAN DANA ADMIN MENGGUNAKAN SKRIP LAMA
         async function hantarPengeluaran(event) {
             event.preventDefault();
             const btn = document.getElementById('butangKeluar');
@@ -364,14 +383,11 @@
             }
         }
 
-        // MENGESAHKAN TRANSAKSI MENGGUNAKAN SKRIP BAHARU
         async function sahkanTransaksi(id) {
             if(!confirm("Sahkan transaksi ini? Baki hutang akan dikemas kini.")) return;
-
             document.getElementById('senaraiTransaksi').innerHTML = '<p class="text-center text-slate-500 text-sm py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengesahkan rekod...</p>';
 
             try {
-                // Post ke Skrip Baharu (Hutang) untuk kemas kini status kepada "Sah"
                 await fetch(URL_HUTANG, {
                     method: 'POST',
                     body: JSON.stringify({ action: "sahkan", id: id }),
