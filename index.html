@@ -77,14 +77,13 @@
   .stamp{ display:inline-flex; align-items:center; gap:4px; font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; padding:3px 9px; border-radius:20px; border:1.5px solid currentColor; transform:rotate(-4deg); }
   .stamp.sah{ color:var(--stamp); background:rgba(124,42,42,0.06); }
   .stamp.menunggu{ color:var(--gold); background:rgba(156,123,51,0.08); transform:rotate(-2deg); }
-  .stamp.admin{ color:var(--teal); background:rgba(46,102,89,0.08); transform:rotate(-3deg); margin-left:8px; }
 
   .txn{ display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px dashed var(--rule); }
   .txn:last-child{ border-bottom:none; }
   .txn .icon{ width:32px; height:32px; border-radius:50%; background:var(--card-2); border:1px solid var(--rule); display:flex; align-items:center; justify-content:center; font-size:13px; margin-right:10px; flex-shrink:0; }
   .txn .main{ display:flex; align-items:center; min-width:0; }
   .txn .info .amt{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:14px; }
-  .txn .info .meta{ font-size:11px; color:var(--ink-faint); margin-top:1px; }
+  .txn .info .meta{ font-size:11px; color:var(--ink-faint); margin-top:1px; line-height:1.4; }
   .txn .right{ text-align:right; flex-shrink:0; margin-left:8px; }
   .confirm-link{ display:block; margin-top:6px; font-size:11px; color:var(--teal); font-weight:700; background:none; border:none; padding:0; width:auto; cursor:pointer; }
   .empty{ text-align:center; font-size:12.5px; color:var(--ink-faint); padding:18px 0; }
@@ -165,12 +164,19 @@
       <button class="btn-danger hidden" id="btn-pengeluaran" onclick="bukaModalKeluar()">− Pengeluaran Dana (Admin)</button>
     </div>
 
-    <h2 style="margin-top:20px; padding-top:16px; border-top:1.5px dashed var(--rule);">Sejarah Transaksi Dana</h2>
+    <h2 style="margin-top:20px; padding-top:16px; border-top:1.5px dashed var(--rule);">Sejarah Dana Masuk</h2>
     <div id="senarai-dana-txn"><p class="empty">Memuatkan…</p></div>
   </div>
 
-  <!-- MUKA SURAT 03 — SEJARAH HUTANG -->
-  <p class="page-num">Muka Surat 03 — Sejarah Hutang</p>
+  <!-- MUKA SURAT 03 — LOG PENGELUARAN -->
+  <p class="page-num">Muka Surat 03 — Log Pengeluaran</p>
+  <div class="card">
+    <h2>Log Pengeluaran Abah</h2>
+    <div id="senarai-pengeluaran"><p class="empty">Memuatkan…</p></div>
+  </div>
+
+  <!-- MUKA SURAT 04 — SEJARAH HUTANG -->
+  <p class="page-num">Muka Surat 04 — Sejarah Hutang</p>
   <div class="card">
     <h2>Rekod Transaksi Hutang</h2>
     <div id="senarai-hutang"><p class="empty">Memuatkan…</p></div>
@@ -265,8 +271,6 @@ const URL_API = "https://script.google.com/macros/s/AKfycbwVQVd52gEqiMPxDfiWz4LB
 const DANA_KUNCI = ["Dana Servis Veloz","Dana Servis Persona","Dana Roadtax Veloz","Dana Roadtax Persona","Tabungan Masa Depan"];
 const DANA_IKON = {"Dana Servis Veloz":"🚗","Dana Servis Persona":"🚙","Dana Roadtax Veloz":"📄","Dana Roadtax Persona":"📄","Tabungan Masa Depan":"💰"};
 
-// BAHARU: baca kata rahsia admin dari URL laman web ini sendiri
-// Contoh: https://.../?admin=RAHSIA_ABAH_2026
 const paramURL = new URLSearchParams(window.location.search);
 let state = { secret: paramURL.get('admin') || "", peranan: "USER", dataHutang: [], dataDanaTxn: [] };
 
@@ -281,7 +285,7 @@ function apiUrl(){ return `${URL_API}?admin=${encodeURIComponent(state.secret)}`
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ============================================================
-   MUAT DATA (dipanggil terus semasa load — tiada log masuk)
+   MUAT DATA
    ============================================================ */
 window.onload = muatSemua;
 
@@ -321,7 +325,7 @@ async function muatSemua(){
 }
 
 /* ============================================================
-   PAPAR DANA
+   PAPAR DANA & PENGELUARAN (Diasingkan)
    ============================================================ */
 function paparDana(dana){
   const r = (dana && dana.ringkasan) || {};
@@ -341,34 +345,46 @@ function paparDana(dana){
   document.getElementById('dana-hasif-total').innerText = rm((dana && dana.jumlahDibayarHasif) || 0);
 
   state.dataDanaTxn = (dana && dana.transaksi) || [];
+  
+  // Asingkan transaksi Masuk dan Keluar (Pengeluaran)
+  const senaraiMasuk = state.dataDanaTxn.filter(t => t.tipe !== 'keluar');
+  const senaraiKeluar = state.dataDanaTxn.filter(t => t.tipe === 'keluar');
+
+  // 1. Render Sejarah Dana Masuk
   const txnEl = document.getElementById('senarai-dana-txn');
-  if(state.dataDanaTxn.length === 0){
-    txnEl.innerHTML = '<p class="empty">Belum ada rekod transaksi.</p>';
+  if(senaraiMasuk.length === 0){
+    txnEl.innerHTML = '<p class="empty">Belum ada rekod kemasukan.</p>';
   } else {
-    txnEl.innerHTML = state.dataDanaTxn.map(t => {
-      if(t.tipe === 'keluar'){
-        return `
-          <div class="txn">
-            <div class="main">
-              <div class="icon">📤</div>
-              <div class="info">
-                <div class="amt" style="color:var(--debt)">− ${rm(t.jumlah)}</div>
-                <div class="meta">${t.tarikh || ''} · ${escapeHtml(t.jenisTabung || '')}${t.tujuan ? ' · ' + escapeHtml(t.tujuan) : ''}</div>
-              </div>
-            </div>
-          </div>`;
-      }
-      return `
-        <div class="txn">
-          <div class="main">
-            <div class="icon">💵</div>
-            <div class="info">
-              <div class="amt" style="color:var(--teal)">+ ${rm(t.jumlah)}</div>
-              <div class="meta">${t.tarikh || ''} · ${t.kategori || ''}${t.nota ? ' · ' + escapeHtml(t.nota) : ''}</div>
+    txnEl.innerHTML = senaraiMasuk.map(t => `
+      <div class="txn">
+        <div class="main">
+          <div class="icon">💵</div>
+          <div class="info">
+            <div class="amt" style="color:var(--teal)">+ ${rm(t.jumlah)}</div>
+            <div class="meta">${t.tarikh || ''} · ${t.kategori || ''}${t.nota ? ' · ' + escapeHtml(t.nota) : ''}</div>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  // 2. Render Log Pengeluaran Abah (Boleh dilihat semua)
+  const keluarEl = document.getElementById('senarai-pengeluaran');
+  if(senaraiKeluar.length === 0){
+    keluarEl.innerHTML = '<p class="empty">Tiada pengeluaran direkodkan buat masa ini.</p>';
+  } else {
+    keluarEl.innerHTML = senaraiKeluar.map(t => `
+      <div class="txn">
+        <div class="main">
+          <div class="icon" style="color:var(--debt); border-color:var(--debt); background:rgba(138,59,52,0.05);">📤</div>
+          <div class="info">
+            <div class="amt" style="color:var(--debt)">− ${rm(t.jumlah)}</div>
+            <div class="meta">
+              ${t.tarikh || ''} · <strong>${escapeHtml(t.jenisTabung || '')}</strong>
+              ${t.tujuan ? `<br><span style="color:var(--ink-soft); font-weight:600;">Tujuan: ${escapeHtml(t.tujuan)}</span>` : ''}
             </div>
           </div>
-        </div>`;
-    }).join('');
+        </div>
+      </div>`).join('');
   }
 }
 
